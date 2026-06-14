@@ -26,6 +26,18 @@ const overviewCards = [
     icon: "🏆",
   },
   {
+    title: "Tournaments",
+    description: "Browse tournaments by game",
+    to: "/tournaments",
+    icon: "🎮",
+  },
+  {
+    title: "Videos",
+    description: "Watch recent live replays and tournament videos",
+    to: "/videos",
+    icon: "🎬",
+  },
+  {
     title: "Watch Live",
     description: "Watch the official tournament broadcast",
     to: "/live",

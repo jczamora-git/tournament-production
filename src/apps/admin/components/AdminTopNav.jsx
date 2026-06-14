@@ -2,11 +2,14 @@ import { NavLink } from "react-router-dom";
 
 const navItems = [
   { to: "/dashboard", label: "Dashboard", end: true },
+  { to: "/tournaments", label: "Tournaments" },
   { to: "/teams", label: "Teams" },
   { to: "/team-submissions", label: "Submissions" },
   { to: "/matches", label: "Matches" },
   { to: "/history", label: "History" },
   { to: "/bracket", label: "Bracket" },
+  { to: "/videos", label: "Videos" },
+  { to: "/live-settings", label: "Live" },
 ];
 
 function AdminTopNav({ onLogout }) {

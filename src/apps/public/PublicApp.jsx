@@ -6,6 +6,8 @@ import ViewMatches from "./pages/ViewMatches";
 import ViewHistory from "./pages/ViewHistory";
 import ViewBracket from "./pages/ViewBracket";
 import WatchLive from "./pages/WatchLive";
+import ViewTournaments from "./pages/ViewTournaments";
+import ViewVideos from "./pages/ViewVideos";
 
 function PublicApp() {
   return (
@@ -14,6 +16,8 @@ function PublicApp() {
       <main className="admin-shell">
         <Routes>
           <Route path="/" element={<PublicHome />} />
+          <Route path="/tournaments" element={<ViewTournaments />} />
+          <Route path="/videos" element={<ViewVideos />} />
           <Route path="/upload-team" element={<UploadTeam />} />
           <Route path="/matches" element={<ViewMatches />} />
           <Route path="/history" element={<ViewHistory />} />

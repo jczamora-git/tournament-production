@@ -2,6 +2,8 @@ import { NavLink } from "react-router-dom";
 
 const navItems = [
   { to: "/", label: "Home", end: true },
+  { to: "/tournaments", label: "Tournaments" },
+  { to: "/videos", label: "Videos" },
   { to: "/upload-team", label: "Upload Team" },
   { to: "/matches", label: "Matches" },
   { to: "/history", label: "History" },

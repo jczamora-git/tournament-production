@@ -10,6 +10,8 @@ import ManageHistory from "./pages/ManageHistory";
 import ManageBracket from "./pages/ManageBracket";
 import TeamSubmissions from "./pages/TeamSubmissions";
 import AdminLiveSettings from "./pages/AdminLiveSettings";
+import ManageTournaments from "./pages/ManageTournaments";
+import ManageVideos from "./pages/ManageVideos";
 import LoadingState from "./components/LoadingState";
 
 function AdminApp() {
@@ -63,11 +65,13 @@ function AdminApp() {
         <Routes>
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
           <Route path="/dashboard" element={<AdminDashboard />} />
+          <Route path="/tournaments" element={<ManageTournaments />} />
           <Route path="/teams" element={<ManageTeams />} />
           <Route path="/team-submissions" element={<TeamSubmissions />} />
           <Route path="/matches" element={<ManageMatches />} />
           <Route path="/history" element={<ManageHistory />} />
           <Route path="/bracket" element={<ManageBracket />} />
+          <Route path="/videos" element={<ManageVideos />} />
           <Route path="/live-settings" element={<AdminLiveSettings />} />
         </Routes>
       </main>

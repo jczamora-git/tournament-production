@@ -54,6 +54,10 @@ export const getUpcomingMatches = () => request("/matches/upcoming");
 export const getMatchHistory = () => request("/matches/history");
 export const getMatchBracket = () => request("/matches/bracket");
 export const getPublicLiveSettings = () => request("/live-settings");
+export const getTournaments = () => request("/tournaments");
+export const getTournamentBySlug = (slug) => request(`/tournaments/${slug}`);
+export const getVideos = () => request("/videos");
+export const getTournamentVideos = (slug) => request(`/tournaments/${slug}/videos`);
 
 // Public team submission
 export const submitTeam = (payload) =>
@@ -94,3 +98,15 @@ export const adminRejectSubmission = (id) =>
 export const adminGetLiveSettings = () => adminRequest("/admin/live-settings");
 export const adminUpdateLiveSettings = (payload) =>
   adminRequest("/admin/live-settings", { method: "PUT", body: payload });
+
+// Admin tournaments
+export const adminGetTournaments = () => adminRequest("/admin/tournaments");
+export const adminCreateTournament = (payload) => adminRequest("/admin/tournaments", { method: "POST", body: payload });
+export const adminUpdateTournament = (id, payload) => adminRequest(`/admin/tournaments/${id}`, { method: "PUT", body: payload });
+export const adminDeleteTournament = (id) => adminRequest(`/admin/tournaments/${id}`, { method: "DELETE" });
+
+// Admin videos
+export const adminGetVideos = () => adminRequest("/admin/videos");
+export const adminCreateVideo = (payload) => adminRequest("/admin/videos", { method: "POST", body: payload });
+export const adminUpdateVideo = (id, payload) => adminRequest(`/admin/videos/${id}`, { method: "PUT", body: payload });
+export const adminDeleteVideo = (id) => adminRequest(`/admin/videos/${id}`, { method: "DELETE" });
