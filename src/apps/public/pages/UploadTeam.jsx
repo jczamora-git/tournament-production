@@ -50,15 +50,19 @@ function UploadTeam() {
 
   return (
     <div>
-      <h1>Upload Team</h1>
-      <p className="page-desc">Submit your team for the tournament. Your submission will be reviewed by an admin before being added to the official team list.</p>
+      <div className="admin-page-header">
+        <div className="admin-page-title-group">
+          <h1>Upload Team</h1>
+          <p className="admin-page-subtitle">Submit your team for the tournament. Your submission will be reviewed by an admin before being added to the official team list.</p>
+        </div>
+      </div>
 
-      <div className="card form-card">
+      <div className="admin-card" style={{ maxWidth: "800px" }}>
         <form onSubmit={handleSubmit}>
-          {error && <p className="error">{error}</p>}
-          {success && <p className="success">{success}</p>}
+          {error && <div className="admin-error-message">{error}</div>}
+          {success && <div className="admin-error-message" style={{ backgroundColor: "rgba(34, 197, 94, 0.12)", borderColor: "rgba(34, 197, 94, 0.4)", color: "#bbf7d0" }}>{success}</div>}
 
-          <div className="form-group">
+          <div className="form-group" style={{ marginBottom: "16px" }}>
             <label>Team Name *</label>
             <input
               type="text"
@@ -69,51 +73,53 @@ function UploadTeam() {
             />
           </div>
 
-          <div className="form-group">
-            <label>Short Name / Tag</label>
-            <input
-              type="text"
-              name="shortname"
-              value={form.shortname}
-              onChange={handleChange}
-              placeholder="e.g. TL"
-            />
+          <div className="admin-form-row" style={{ marginBottom: "16px" }}>
+            <div className="form-group">
+              <label>Short Name / Tag</label>
+              <input
+                type="text"
+                name="shortname"
+                value={form.shortname}
+                onChange={handleChange}
+                placeholder="e.g. TL"
+              />
+            </div>
+            <div className="form-group">
+              <label>Team Logo URL (optional)</label>
+              <input
+                type="text"
+                name="logo_url"
+                value={form.logo_url}
+                onChange={handleChange}
+                placeholder="https://example.com/logo.png"
+              />
+            </div>
           </div>
 
-          <div className="form-group">
-            <label>Captain Name *</label>
-            <input
-              type="text"
-              name="captain_name"
-              value={form.captain_name}
-              onChange={handleChange}
-              placeholder="Captain's name"
-            />
+          <div className="admin-form-row" style={{ marginBottom: "16px" }}>
+            <div className="form-group">
+              <label>Captain Name *</label>
+              <input
+                type="text"
+                name="captain_name"
+                value={form.captain_name}
+                onChange={handleChange}
+                placeholder="Captain's name"
+              />
+            </div>
+            <div className="form-group">
+              <label>Contact Number or Messenger Link *</label>
+              <input
+                type="text"
+                name="contact"
+                value={form.contact}
+                onChange={handleChange}
+                placeholder="e.g. 09xx-xxx-xxxx or m.me/username"
+              />
+            </div>
           </div>
 
-          <div className="form-group">
-            <label>Contact Number or Messenger Link *</label>
-            <input
-              type="text"
-              name="contact"
-              value={form.contact}
-              onChange={handleChange}
-              placeholder="e.g. 09xx-xxx-xxxx or m.me/username"
-            />
-          </div>
-
-          <div className="form-group">
-            <label>Team Logo URL (optional)</label>
-            <input
-              type="text"
-              name="logo_url"
-              value={form.logo_url}
-              onChange={handleChange}
-              placeholder="https://example.com/logo.png"
-            />
-          </div>
-
-          <div className="form-group">
+          <div className="form-group" style={{ marginBottom: "24px" }}>
             <label>Notes (optional)</label>
             <textarea
               name="notes"
@@ -124,7 +130,7 @@ function UploadTeam() {
             />
           </div>
 
-          <button type="submit" className="btn btn-primary" disabled={loading}>
+          <button type="submit" className="button-primary" disabled={loading}>
             {loading ? "Submitting..." : "Submit Team"}
           </button>
         </form>

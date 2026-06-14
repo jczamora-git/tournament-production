@@ -1,5 +1,7 @@
 import { useState, useEffect } from "react";
 import { getMatchHistory } from "../../../services/api";
+import EmptyState from "../../admin/components/EmptyState";
+import LoadingState from "../../admin/components/LoadingState";
 
 function ViewHistory() {
   const [matches, setMatches] = useState([]);
@@ -13,28 +15,73 @@ function ViewHistory() {
       .finally(() => setLoading(false));
   }, []);
 
-  if (loading) return <p className="loading">Loading history...</p>;
-  if (error) return <p className="error">{error}</p>;
+  if (loading) return <LoadingState message="Loading history..." />;
+  if (error) {
+    return (
+      <div>
+        <h1>Match History</h1>
+        <div className="admin-error-message">{error}</div>
+      </div>
+    );
+  }
 
   return (
     <div>
-      <h1>Match History</h1>
-      <p className="page-desc">Past match results.</p>
-      {matches.map((match) => (
-        <div key={match.id} className="card match-row">
-          <div className="match-teams">
-            <span>Team {match.blue_team_id}</span>
-            <span className="match-score">
-              {match.blue_score} - {match.red_score}
-            </span>
-            <span>Team {match.red_team_id}</span>
-          </div>
-          <div className="match-meta">
-            {match.mode} &middot; {match.title} &middot; Finished
-          </div>
+      <div className="admin-page-header">
+        <div className="admin-page-title-group">
+          <h1>Match History</h1>
+          <p className="admin-page-subtitle">Past match results.</p>
         </div>
-      ))}
-      {!matches.length && <p className="loading">No match history yet</p>}
+      </div>
+
+      {matches.length === 0 ? (
+        <EmptyState
+          icon="📜"
+          title="No match history"
+          description="Completed matches will appear here."
+        />
+      ) : (
+        <div className="admin-match-list">
+          {matches.map((match) => (
+            <div key={match.id} className="admin-match-card">
+              <div className="admin-match-card-header">
+                <span className="admin-match-card-title">{match.title || "Match"}</span>
+                <span className="status-badge status-finished">Finished</span>
+              </div>
+
+              <div className="admin-match-card-teams">
+                <div className="admin-match-team">
+                  <div className="admin-match-team-fallback">
+                    {(match.blue_team?.shortname || match.blue_team?.name || "B")?.[0]}
+                  </div>
+                  <span className="admin-match-team-name">
+                    {match.blue_team?.shortname || match.blue_team?.name || `Team ${match.blue_team_id}`}
+                  </span>
+                </div>
+
+                <div className="admin-match-score-center">
+                  {match.blue_score} - {match.red_score}
+                </div>
+
+                <div className="admin-match-team is-red">
+                  <div className="admin-match-team-fallback">
+                    {(match.red_team?.shortname || match.red_team?.name || "R")?.[0]}
+                  </div>
+                  <span className="admin-match-team-name">
+                    {match.red_team?.shortname || match.red_team?.name || `Team ${match.red_team_id}`}
+                  </span>
+                </div>
+              </div>
+
+              <div className="admin-match-card-footer">
+                <div className="admin-match-card-meta">
+                  <span className="admin-match-mode-pill">{match.mode}</span>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

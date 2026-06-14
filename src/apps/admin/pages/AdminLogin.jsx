@@ -27,12 +27,16 @@ function AdminLogin({ onLogin }) {
   };
 
   return (
-    <div className="admin-login-container">
-      <div className="admin-login-card card">
-        <h1>Admin Login</h1>
-        <p className="login-desc">Jeizi Productions Tournament Admin</p>
-        <form onSubmit={handleSubmit}>
-          {error && <p className="error">{error}</p>}
+    <div className="admin-login-page">
+      <div className="admin-login-panel">
+        <div className="admin-login-brand">
+          <div className="admin-login-brand-mark">J</div>
+          <h1>Admin Login</h1>
+          <p className="admin-login-desc">Jeizi Productions Tournament Admin</p>
+        </div>
+
+        <form onSubmit={handleSubmit} style={{ display: "grid", gap: "16px" }}>
+          {error && <div className="admin-login-error">{error}</div>}
           <div className="form-group">
             <label>Admin Token</label>
             <input
@@ -43,7 +47,7 @@ function AdminLogin({ onLogin }) {
               autoFocus
             />
           </div>
-          <button type="submit" className="btn btn-primary btn-full" disabled={loading}>
+          <button type="submit" className="admin-login-submit" disabled={loading}>
             {loading ? "Logging in..." : "Login"}
           </button>
         </form>

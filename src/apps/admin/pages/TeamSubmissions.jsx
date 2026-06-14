@@ -1,97 +1,165 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { adminGetSubmissions, adminApproveSubmission, adminRejectSubmission } from "../../../services/api";
+import Toast from "../components/Toast";
+import ConfirmationModal from "../components/ConfirmationModal";
+import EmptyState from "../components/EmptyState";
+import LoadingState from "../components/LoadingState";
 
 function TeamSubmissions() {
   const [submissions, setSubmissions] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [toast, setToast] = useState({ message: "", type: "info" });
   const [filter, setFilter] = useState("pending");
+  const [confirmAction, setConfirmAction] = useState(null);
 
-  const fetchSubmissions = async () => {
+  const fetchSubmissions = useCallback(async () => {
     try {
       const data = await adminGetSubmissions();
       setSubmissions(data);
     } catch (err) {
-      setError(err.message);
+      setToast({ message: err.message, type: "error" });
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  useEffect(() => { fetchSubmissions(); }, []);
+  useEffect(() => { fetchSubmissions(); }, [fetchSubmissions]);
 
-  const handleApprove = async (sub) => {
-    if (!confirm(`Approve team "${sub.team_name}"?`)) return;
+  const handleConfirm = async () => {
+    if (!confirmAction) return;
+    const { sub, action } = confirmAction;
     try {
-      await adminApproveSubmission(sub.id, {
-        team_name: sub.team_name,
-        shortname: sub.shortname,
-        logo_url: sub.logo_url,
-      });
+      if (action === "approve") {
+        await adminApproveSubmission(sub.id, {
+          team_name: sub.team_name,
+          shortname: sub.shortname,
+          logo_url: sub.logo_url,
+        });
+        setToast({ message: `"${sub.team_name}" approved`, type: "success" });
+      } else {
+        await adminRejectSubmission(sub.id);
+        setToast({ message: `"${sub.team_name}" rejected`, type: "success" });
+      }
       fetchSubmissions();
     } catch (err) {
-      setError(err.message);
-    }
-  };
-
-  const handleReject = async (sub) => {
-    if (!confirm(`Reject team "${sub.team_name}"?`)) return;
-    try {
-      await adminRejectSubmission(sub.id);
-      fetchSubmissions();
-    } catch (err) {
-      setError(err.message);
+      setToast({ message: err.message, type: "error" });
+    } finally {
+      setConfirmAction(null);
     }
   };
 
   const filtered = submissions.filter((s) => filter === "all" || s.status === filter);
+  const pendingCount = submissions.filter((s) => s.status === "pending").length;
 
-  if (loading) return <p className="loading">Loading submissions...</p>;
+  if (loading) return <LoadingState message="Loading submissions..." />;
 
   return (
     <div>
-      <h1>Team Submissions</h1>
+      <div className="admin-page-header">
+        <div className="admin-page-title-group">
+          <h1>Team Submissions</h1>
+          <p className="admin-page-subtitle">Review and manage team registration submissions.</p>
+        </div>
+      </div>
 
-      <div className="filter-bar">
-        <button className={`btn btn-sm ${filter === "pending" ? "btn-primary" : ""}`} onClick={() => setFilter("pending")}>
-          Pending ({submissions.filter((s) => s.status === "pending").length})
+      <div className="admin-filter-bar">
+        <button
+          type="button"
+          className={`admin-filter-pill${filter === "pending" ? " is-active" : ""}`}
+          onClick={() => setFilter("pending")}
+        >
+          Pending ({pendingCount})
         </button>
-        <button className={`btn btn-sm ${filter === "approved" ? "btn-primary" : ""}`} onClick={() => setFilter("approved")}>
+        <button
+          type="button"
+          className={`admin-filter-pill${filter === "approved" ? " is-active" : ""}`}
+          onClick={() => setFilter("approved")}
+        >
           Approved
         </button>
-        <button className={`btn btn-sm ${filter === "rejected" ? "btn-primary" : ""}`} onClick={() => setFilter("rejected")}>
+        <button
+          type="button"
+          className={`admin-filter-pill${filter === "rejected" ? " is-active" : ""}`}
+          onClick={() => setFilter("rejected")}
+        >
           Rejected
         </button>
-        <button className={`btn btn-sm ${filter === "all" ? "btn-primary" : ""}`} onClick={() => setFilter("all")}>
+        <button
+          type="button"
+          className={`admin-filter-pill${filter === "all" ? " is-active" : ""}`}
+          onClick={() => setFilter("all")}
+        >
           All
         </button>
       </div>
 
-      {error && <p className="error">{error}</p>}
-
-      {filtered.map((sub) => (
-        <div key={sub.id} className="card submission-card">
-          <div className="submission-header">
-            <strong>{sub.team_name}</strong>
-            {sub.shortname && <span className="tag">{sub.shortname}</span>}
-            <span className={`status-badge status-${sub.status}`}>{sub.status}</span>
-          </div>
-          <div className="submission-details">
-            <p><strong>Captain:</strong> {sub.captain_name}</p>
-            <p><strong>Contact:</strong> {sub.contact}</p>
-            {sub.logo_url && <p><strong>Logo:</strong> <a href={sub.logo_url} target="_blank" rel="noreferrer">{sub.logo_url}</a></p>}
-            {sub.notes && <p><strong>Notes:</strong> {sub.notes}</p>}
-            <p className="submission-date">Submitted: {new Date(sub.created_at).toLocaleString()}</p>
-          </div>
-          {sub.status === "pending" && (
-            <div className="card-actions">
-              <button className="btn btn-primary btn-sm" onClick={() => handleApprove(sub)}>Approve</button>
-              <button className="btn btn-danger btn-sm" onClick={() => handleReject(sub)}>Reject</button>
+      {filtered.length === 0 ? (
+        <EmptyState
+          icon="📋"
+          title={`No ${filter} submissions`}
+          description={filter === "pending" ? "All submissions have been reviewed." : `No ${filter} submissions found.`}
+        />
+      ) : (
+        <div className="admin-submission-list">
+          {filtered.map((sub) => (
+            <div key={sub.id} className="admin-submission-card">
+              <div className="admin-submission-header">
+                <strong>{sub.team_name}</strong>
+                {sub.shortname && <span className="admin-submission-tag">{sub.shortname}</span>}
+                <span className={`status-badge status-${sub.status}`}>{sub.status}</span>
+              </div>
+              <div className="admin-submission-details">
+                <p><strong>Captain:</strong> {sub.captain_name}</p>
+                <p><strong>Contact:</strong> {sub.contact}</p>
+                {sub.logo_url && (
+                  <p>
+                    <strong>Logo:</strong>{" "}
+                    <a href={sub.logo_url} target="_blank" rel="noreferrer">{sub.logo_url}</a>
+                  </p>
+                )}
+                {sub.notes && <p><strong>Notes:</strong> {sub.notes}</p>}
+                <p className="admin-submission-date">
+                  Submitted: {new Date(sub.created_at).toLocaleString()}
+                </p>
+              </div>
+              {sub.status === "pending" && (
+                <div className="admin-submission-actions">
+                  <button
+                    type="button"
+                    className="button-success button-compact"
+                    onClick={() => setConfirmAction({ sub, action: "approve" })}
+                  >
+                    ✓ Approve
+                  </button>
+                  <button
+                    type="button"
+                    className="button-danger-outline button-compact"
+                    onClick={() => setConfirmAction({ sub, action: "reject" })}
+                  >
+                    ✕ Reject
+                  </button>
+                </div>
+              )}
             </div>
-          )}
+          ))}
         </div>
-      ))}
-      {!filtered.length && <p className="loading">No {filter} submissions</p>}
+      )}
+
+      <ConfirmationModal
+        open={!!confirmAction}
+        title={confirmAction?.action === "approve" ? "Approve Team" : "Reject Team"}
+        message={
+          confirmAction?.action === "approve"
+            ? `Approve "${confirmAction?.sub?.team_name}" and add them to the tournament?`
+            : `Reject "${confirmAction?.sub?.team_name}"? They will need to resubmit.`
+        }
+        confirmText={confirmAction?.action === "approve" ? "Approve" : "Reject"}
+        variant={confirmAction?.action === "reject" ? "danger" : undefined}
+        onConfirm={handleConfirm}
+        onCancel={() => setConfirmAction(null)}
+      />
+
+      <Toast message={toast.message} type={toast.type} onClose={() => setToast({ message: "", type: "info" })} />
     </div>
   );
 }

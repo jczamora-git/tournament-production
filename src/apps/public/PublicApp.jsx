@@ -1,4 +1,5 @@
-import { Routes, Route, NavLink } from "react-router-dom";
+import { Routes, Route } from "react-router-dom";
+import PublicTopNav from "./components/PublicTopNav";
 import PublicHome from "./pages/PublicHome";
 import UploadTeam from "./pages/UploadTeam";
 import ViewMatches from "./pages/ViewMatches";
@@ -7,15 +8,9 @@ import ViewBracket from "./pages/ViewBracket";
 
 function PublicApp() {
   return (
-    <div className="app">
-      <nav className="nav">
-        <NavLink to="/" end>Home</NavLink>
-        <NavLink to="/upload-team">Upload Team</NavLink>
-        <NavLink to="/matches">Matches</NavLink>
-        <NavLink to="/history">History</NavLink>
-        <NavLink to="/bracket">Bracket</NavLink>
-      </nav>
-      <main className="main">
+    <div className="admin-app">
+      <PublicTopNav />
+      <main className="admin-shell">
         <Routes>
           <Route path="/" element={<PublicHome />} />
           <Route path="/upload-team" element={<UploadTeam />} />

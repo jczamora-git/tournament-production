@@ -1,5 +1,7 @@
 import { useState, useEffect } from "react";
 import { getMatchBracket } from "../../../services/api";
+import EmptyState from "../../admin/components/EmptyState";
+import LoadingState from "../../admin/components/LoadingState";
 
 function ViewBracket() {
   const [bracket, setBracket] = useState([]);
@@ -13,30 +15,73 @@ function ViewBracket() {
       .finally(() => setLoading(false));
   }, []);
 
-  if (loading) return <p className="loading">Loading bracket...</p>;
-  if (error) return <p className="error">{error}</p>;
+  if (loading) return <LoadingState message="Loading bracket..." />;
+  if (error) {
+    return (
+      <div>
+        <h1>Tournament Bracket</h1>
+        <div className="admin-error-message">{error}</div>
+      </div>
+    );
+  }
 
   return (
     <div>
-      <h1>Tournament Bracket</h1>
-      <p className="page-desc">Full tournament bracket view.</p>
-      <div className="bracket-container">
-        {bracket.map((match) => (
-          <div key={match.id} className="card match-row">
-            <div className="match-teams">
-              <span>{match.blue_team?.shortname || match.blue_team?.name || `Team ${match.blue_team_id}`}</span>
-              <span className="match-score">
-                {match.blue_score} - {match.red_score}
-              </span>
-              <span>{match.red_team?.shortname || match.red_team?.name || `Team ${match.red_team_id}`}</span>
-            </div>
-            <div className="match-meta">
-              {match.mode} &middot; {match.title} &middot; {match.status}
-            </div>
-          </div>
-        ))}
-        {!bracket.length && <p className="loading">No bracket data yet</p>}
+      <div className="admin-page-header">
+        <div className="admin-page-title-group">
+          <h1>Tournament Bracket</h1>
+          <p className="admin-page-subtitle">Full tournament bracket view.</p>
+        </div>
       </div>
+
+      {bracket.length === 0 ? (
+        <EmptyState
+          icon="🏆"
+          title="No bracket data"
+          description="Tournament bracket matches will appear here."
+        />
+      ) : (
+        <div className="admin-bracket-list">
+          {bracket.map((match) => (
+            <div key={match.id} className="admin-match-card">
+              <div className="admin-match-card-header">
+                <span className="admin-match-card-title">{match.title || "Bracket Match"}</span>
+                <span className={`status-badge status-${match.status}`}>{match.status}</span>
+              </div>
+
+              <div className="admin-match-card-teams">
+                <div className="admin-match-team">
+                  <div className="admin-match-team-fallback">
+                    {(match.blue_team?.shortname || match.blue_team?.name || "B")?.[0]}
+                  </div>
+                  <span className="admin-match-team-name">
+                    {match.blue_team?.shortname || match.blue_team?.name || `Team ${match.blue_team_id}`}
+                  </span>
+                </div>
+
+                <div className="admin-match-score-center">
+                  {match.blue_score} - {match.red_score}
+                </div>
+
+                <div className="admin-match-team is-red">
+                  <div className="admin-match-team-fallback">
+                    {(match.red_team?.shortname || match.red_team?.name || "R")?.[0]}
+                  </div>
+                  <span className="admin-match-team-name">
+                    {match.red_team?.shortname || match.red_team?.name || `Team ${match.red_team_id}`}
+                  </span>
+                </div>
+              </div>
+
+              <div className="admin-match-card-footer">
+                <div className="admin-match-card-meta">
+                  <span className="admin-match-mode-pill">{match.mode}</span>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
