@@ -110,3 +110,12 @@ export const adminGetVideos = () => adminRequest("/admin/videos");
 export const adminCreateVideo = (payload) => adminRequest("/admin/videos", { method: "POST", body: payload });
 export const adminUpdateVideo = (id, payload) => adminRequest(`/admin/videos/${id}`, { method: "PUT", body: payload });
 export const adminDeleteVideo = (id) => adminRequest(`/admin/videos/${id}`, { method: "DELETE" });
+
+// Admin uploads
+export const adminUploadTournamentImage = (file, type, tournamentId) => {
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("type", type);
+  if (tournamentId) formData.append("tournament_id", tournamentId);
+  return adminRequest("/admin/uploads/tournament-image", { method: "POST", body: formData });
+};

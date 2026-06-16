@@ -51,6 +51,8 @@ CREATE TABLE IF NOT EXISTS tournaments (
   status TEXT DEFAULT 'upcoming',
   banner_url TEXT,
   logo_url TEXT,
+  cover_image_url TEXT,
+  logo_image_url TEXT,
   start_date DATE,
   end_date DATE,
   is_active BOOLEAN DEFAULT true,

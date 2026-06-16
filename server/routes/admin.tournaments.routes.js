@@ -14,8 +14,8 @@ router.get("/", async (req, res) => {
 });
 
 router.post("/", async (req, res) => {
-  const { name, slug, game_type, season, description, status, banner_url, logo_url, start_date, end_date, is_active } = req.body;
-  
+  const { name, slug, game_type, season, description, status, banner_url, logo_url, cover_image_url, logo_image_url, start_date, end_date, is_active } = req.body;
+
   if (!name || !slug || !game_type) {
     return res.status(400).json({ message: "Name, slug, and game type are required." });
   }
@@ -24,16 +24,16 @@ router.post("/", async (req, res) => {
     let query, params;
     if (db.client === "postgres") {
       query = `
-        INSERT INTO tournaments (name, slug, game_type, season, description, status, banner_url, logo_url, start_date, end_date, is_active)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING *
+        INSERT INTO tournaments (name, slug, game_type, season, description, status, banner_url, logo_url, cover_image_url, logo_image_url, start_date, end_date, is_active)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) RETURNING *
       `;
-      params = [name, slug, game_type, season, description, status || 'upcoming', banner_url, logo_url, start_date || null, end_date || null, is_active !== false];
+      params = [name, slug, game_type, season, description, status || 'upcoming', banner_url, logo_url, cover_image_url, logo_image_url, start_date || null, end_date || null, is_active !== false];
     } else {
       query = `
-        INSERT INTO tournaments (name, slug, game_type, season, description, status, banner_url, logo_url, start_date, end_date, is_active)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO tournaments (name, slug, game_type, season, description, status, banner_url, logo_url, cover_image_url, logo_image_url, start_date, end_date, is_active)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `;
-      params = [name, slug, game_type, season, description, status || 'upcoming', banner_url, logo_url, start_date || null, end_date || null, is_active !== false];
+      params = [name, slug, game_type, season, description, status || 'upcoming', banner_url, logo_url, cover_image_url, logo_image_url, start_date || null, end_date || null, is_active !== false];
     }
 
     const [result] = await db.query(query, params);
@@ -48,24 +48,24 @@ router.post("/", async (req, res) => {
 });
 
 router.put("/:id", async (req, res) => {
-  const { name, slug, game_type, season, description, status, banner_url, logo_url, start_date, end_date, is_active } = req.body;
-  
+  const { name, slug, game_type, season, description, status, banner_url, logo_url, cover_image_url, logo_image_url, start_date, end_date, is_active } = req.body;
+
   try {
     let query, params;
     if (db.client === "postgres") {
       query = `
         UPDATE tournaments
-        SET name=$1, slug=$2, game_type=$3, season=$4, description=$5, status=$6, banner_url=$7, logo_url=$8, start_date=$9, end_date=$10, is_active=$11, updated_at=NOW()
-        WHERE id=$12 RETURNING *
+        SET name=$1, slug=$2, game_type=$3, season=$4, description=$5, status=$6, banner_url=$7, logo_url=$8, cover_image_url=$9, logo_image_url=$10, start_date=$11, end_date=$12, is_active=$13, updated_at=NOW()
+        WHERE id=$14 RETURNING *
       `;
-      params = [name, slug, game_type, season, description, status, banner_url, logo_url, start_date || null, end_date || null, is_active, req.params.id];
+      params = [name, slug, game_type, season, description, status, banner_url, logo_url, cover_image_url, logo_image_url, start_date || null, end_date || null, is_active, req.params.id];
     } else {
       query = `
         UPDATE tournaments
-        SET name=?, slug=?, game_type=?, season=?, description=?, status=?, banner_url=?, logo_url=?, start_date=?, end_date=?, is_active=?
+        SET name=?, slug=?, game_type=?, season=?, description=?, status=?, banner_url=?, logo_url=?, cover_image_url=?, logo_image_url=?, start_date=?, end_date=?, is_active=?
         WHERE id=?
       `;
-      params = [name, slug, game_type, season, description, status, banner_url, logo_url, start_date || null, end_date || null, is_active, req.params.id];
+      params = [name, slug, game_type, season, description, status, banner_url, logo_url, cover_image_url, logo_image_url, start_date || null, end_date || null, is_active, req.params.id];
     }
 
     await db.query(query, params);

@@ -1,8 +1,67 @@
-import { useState, useEffect } from "react";
-import { adminGetTournaments, adminCreateTournament, adminUpdateTournament, adminDeleteTournament } from "../../../services/api";
+import { useState, useEffect, useRef } from "react";
+import { adminGetTournaments, adminCreateTournament, adminUpdateTournament, adminDeleteTournament, adminUploadTournamentImage } from "../../../services/api";
 import LoadingState from "../components/LoadingState";
 import EmptyState from "../components/EmptyState";
 import Toast from "../components/Toast";
+
+function ImageUploadField({ label, url, onUrlChange, type, tournamentId }) {
+  const fileRef = useRef(null);
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState("");
+
+  const handleUpload = async () => {
+    const file = fileRef.current?.files?.[0];
+    if (!file) return;
+    setError("");
+    setUploading(true);
+    try {
+      const result = await adminUploadTournamentImage(file, type, tournamentId);
+      onUrlChange(result.url);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setUploading(false);
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  };
+
+  return (
+    <div className="form-group">
+      <label>{label}</label>
+      <input
+        value={url}
+        onChange={(e) => onUrlChange(e.target.value)}
+        placeholder="Paste image URL or upload below"
+      />
+      <div style={{ display: "flex", gap: "8px", marginTop: "8px", alignItems: "center" }}>
+        <input
+          ref={fileRef}
+          type="file"
+          accept="image/png,image/jpeg,image/webp,image/gif"
+          style={{ flex: 1, fontSize: "13px" }}
+        />
+        <button
+          type="button"
+          className="button-secondary button-compact"
+          onClick={handleUpload}
+          disabled={uploading}
+        >
+          {uploading ? "Uploading..." : "Upload"}
+        </button>
+      </div>
+      {error && <p style={{ color: "#fca5a5", fontSize: "12px", marginTop: "4px" }}>{error}</p>}
+      {url && (
+        <div style={{ marginTop: "8px" }}>
+          <img
+            src={url}
+            alt={label}
+            style={{ maxWidth: "100%", maxHeight: "120px", borderRadius: "8px", border: "1px solid var(--jz-border)" }}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
 
 function ManageTournaments() {
   const [tournaments, setTournaments] = useState([]);
@@ -13,7 +72,8 @@ function ManageTournaments() {
 
   const [formData, setFormData] = useState({
     name: "", slug: "", game_type: "MLBB", season: "", description: "",
-    status: "upcoming", banner_url: "", logo_url: "", start_date: "", end_date: "", is_active: true
+    status: "upcoming", banner_url: "", logo_url: "", cover_image_url: "", logo_image_url: "",
+    start_date: "", end_date: "", is_active: true
   });
 
   const fetchTournaments = () => {
@@ -40,6 +100,8 @@ function ManageTournaments() {
         status: tournament.status || "upcoming",
         banner_url: tournament.banner_url || "",
         logo_url: tournament.logo_url || "",
+        cover_image_url: tournament.cover_image_url || "",
+        logo_image_url: tournament.logo_image_url || "",
         start_date: tournament.start_date ? tournament.start_date.split('T')[0] : "",
         end_date: tournament.end_date ? tournament.end_date.split('T')[0] : "",
         is_active: tournament.is_active
@@ -48,7 +110,8 @@ function ManageTournaments() {
       setEditingTournament(null);
       setFormData({
         name: "", slug: "", game_type: "MLBB", season: "", description: "",
-        status: "upcoming", banner_url: "", logo_url: "", start_date: "", end_date: "", is_active: true
+        status: "upcoming", banner_url: "", logo_url: "", cover_image_url: "", logo_image_url: "",
+        start_date: "", end_date: "", is_active: true
       });
     }
     setIsFormOpen(true);
@@ -64,7 +127,7 @@ function ManageTournaments() {
     if (!dataToSave.slug && dataToSave.name) {
       dataToSave.slug = generateSlug(dataToSave.name);
     }
-    
+
     try {
       if (editingTournament) {
         await adminUpdateTournament(editingTournament.id, dataToSave);
@@ -163,6 +226,25 @@ function ManageTournaments() {
               <input type="checkbox" id="is_active" checked={formData.is_active} onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })} style={{ width: "auto" }} />
               <label htmlFor="is_active" style={{ marginBottom: 0, cursor: "pointer" }}>Is Active (Visible)</label>
             </div>
+
+            <hr style={{ border: "none", borderTop: "1px solid var(--jz-border)", margin: "8px 0" }} />
+
+            <ImageUploadField
+              label="Tournament Cover Image"
+              url={formData.cover_image_url}
+              onUrlChange={(url) => setFormData({ ...formData, cover_image_url: url })}
+              type="cover"
+              tournamentId={editingTournament?.id}
+            />
+
+            <ImageUploadField
+              label="Tournament Logo Image"
+              url={formData.logo_image_url}
+              onUrlChange={(url) => setFormData({ ...formData, logo_image_url: url })}
+              type="logo"
+              tournamentId={editingTournament?.id}
+            />
+
             <button type="submit" className="button-primary">Save Tournament</button>
           </form>
         </div>
@@ -181,6 +263,13 @@ function ManageTournaments() {
                 </span>
               </div>
               <div className="admin-match-body">
+                {(t.cover_image_url || t.banner_url) && (
+                  <img
+                    src={t.cover_image_url || t.banner_url}
+                    alt={t.name}
+                    style={{ width: "100%", maxHeight: "120px", objectFit: "cover", borderRadius: "8px", marginBottom: "12px" }}
+                  />
+                )}
                 <h3 style={{ margin: "0 0 8px 0" }}>{t.name}</h3>
                 {t.season && <p className="admin-page-subtitle" style={{ margin: "0 0 8px 0" }}>{t.season}</p>}
                 <p className="admin-page-subtitle" style={{ margin: 0 }}>{t.slug}</p>

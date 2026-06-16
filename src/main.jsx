@@ -5,6 +5,7 @@ import PublicApp from "./apps/public/PublicApp";
 import AdminApp from "./apps/admin/AdminApp";
 import "./styles/index.css";
 import "./styles/admin-controller.css";
+import "./styles/public-landing.css";
 
 // Hostname-based routing: admin subdomain gets AdminApp, everything else gets PublicApp
 const hostname = window.location.hostname;

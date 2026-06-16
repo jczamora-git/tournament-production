@@ -1,0 +1,480 @@
+/* ============================================================
+   PUBLIC LANDING PAGE — Jeizi Productions Tournament
+   ============================================================ */
+
+/* ── Hero Section ───────────────────────────────────────── */
+.ph-hero {
+  position: relative;
+  text-align: center;
+  padding: 80px 24px 64px;
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(220, 38, 38, 0.18), transparent 50%),
+    radial-gradient(ellipse at 80% 100%, rgba(37, 99, 235, 0.1), transparent 40%),
+    linear-gradient(180deg, rgba(12, 16, 24, 0.96), rgba(5, 7, 11, 0.96));
+  border-bottom: 1px solid rgba(148, 163, 184, 0.1);
+  overflow: hidden;
+}
+
+.ph-hero::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+  background-size: 48px 48px;
+  pointer-events: none;
+}
+
+.ph-hero-eyebrow {
+  display: inline-block;
+  padding: 6px 16px;
+  border-radius: 999px;
+  background: rgba(220, 38, 38, 0.12);
+  border: 1px solid rgba(220, 38, 38, 0.3);
+  color: #fca5a5;
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom: 24px;
+}
+
+.ph-hero h1 {
+  font-size: clamp(2rem, 5vw, 3.5rem);
+  font-weight: 900;
+  line-height: 1.1;
+  margin: 0 0 12px;
+  color: #f8fafc;
+  letter-spacing: -0.02em;
+}
+
+.ph-hero-subtitle {
+  font-size: clamp(1rem, 2vw, 1.25rem);
+  color: #94a3b8;
+  margin: 0 0 20px;
+  font-weight: 500;
+}
+
+.ph-hero-desc {
+  max-width: 600px;
+  margin: 0 auto 36px;
+  color: #64748b;
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+.ph-hero-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+/* ── Buttons ────────────────────────────────────────────── */
+.ph-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 11px 24px;
+  border-radius: 12px;
+  border: 1px solid transparent;
+  font-size: 14px;
+  font-weight: 700;
+  font-family: inherit;
+  text-decoration: none;
+  cursor: pointer;
+  transition: transform 0.16s ease, box-shadow 0.2s ease, background 0.2s ease, border-color 0.2s ease;
+}
+
+.ph-btn:hover {
+  transform: translateY(-2px);
+}
+
+.ph-btn-primary {
+  background: linear-gradient(180deg, #ef4444, #dc2626);
+  border-color: rgba(239, 68, 68, 0.5);
+  color: #fff;
+  box-shadow: 0 0 24px rgba(220, 38, 38, 0.2);
+}
+
+.ph-btn-primary:hover {
+  box-shadow: 0 0 36px rgba(220, 38, 38, 0.35);
+}
+
+.ph-btn-secondary {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(148, 163, 184, 0.2);
+  color: #f8fafc;
+}
+
+.ph-btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(148, 163, 184, 0.35);
+}
+
+.ph-btn-blue {
+  background: linear-gradient(180deg, #3b82f6, #2563eb);
+  border-color: rgba(59, 130, 246, 0.5);
+  color: #fff;
+  box-shadow: 0 0 24px rgba(37, 99, 235, 0.2);
+}
+
+.ph-btn-blue:hover {
+  box-shadow: 0 0 36px rgba(37, 99, 235, 0.35);
+}
+
+/* ── Section Layout ─────────────────────────────────────── */
+.ph-section {
+  padding: 56px 24px;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+.ph-section-header {
+  text-align: center;
+  margin-bottom: 40px;
+}
+
+.ph-section-header h2 {
+  font-size: clamp(1.5rem, 3vw, 2rem);
+  font-weight: 800;
+  color: #f8fafc;
+  margin: 0 0 10px;
+}
+
+.ph-section-header p {
+  color: #94a3b8;
+  font-size: 15px;
+  max-width: 500px;
+  margin: 0 auto;
+  line-height: 1.5;
+}
+
+/* ── Featured Tournament ────────────────────────────────── */
+.ph-featured {
+  position: relative;
+  padding: 32px;
+  border-radius: 18px;
+  background:
+    radial-gradient(ellipse at top right, rgba(220, 38, 38, 0.1), transparent 50%),
+    linear-gradient(180deg, rgba(18, 24, 36, 0.95), rgba(10, 14, 22, 0.95));
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.3);
+  max-width: 700px;
+  margin: 0 auto;
+}
+
+.ph-featured-top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.ph-featured-game {
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: rgba(59, 130, 246, 0.14);
+  border: 1px solid rgba(59, 130, 246, 0.25);
+  color: #93c5fd;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.ph-featured-status {
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: rgba(34, 197, 94, 0.14);
+  border: 1px solid rgba(34, 197, 94, 0.25);
+  color: #86efac;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.ph-featured h3 {
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: #f8fafc;
+  margin: 0 0 10px;
+}
+
+.ph-featured-desc {
+  color: #94a3b8;
+  font-size: 14px;
+  line-height: 1.5;
+  margin: 0 0 24px;
+}
+
+.ph-featured-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+/* ── Action Tiles ───────────────────────────────────────── */
+.ph-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+.ph-tile {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 24px;
+  border-radius: 16px;
+  background: linear-gradient(180deg, rgba(18, 24, 36, 0.9), rgba(8, 11, 18, 0.9));
+  border: 1px solid rgba(148, 163, 184, 0.12);
+  text-decoration: none;
+  color: #f8fafc;
+  transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.ph-tile:hover {
+  transform: translateY(-3px);
+  border-color: rgba(220, 38, 38, 0.3);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.3), 0 0 20px rgba(220, 38, 38, 0.08);
+}
+
+.ph-tile-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  flex-shrink: 0;
+  background: rgba(220, 38, 38, 0.12);
+  border: 1px solid rgba(220, 38, 38, 0.2);
+}
+
+.ph-tile-icon.is-blue {
+  background: rgba(59, 130, 246, 0.12);
+  border-color: rgba(59, 130, 246, 0.2);
+}
+
+.ph-tile-icon.is-green {
+  background: rgba(34, 197, 94, 0.12);
+  border-color: rgba(34, 197, 94, 0.2);
+}
+
+.ph-tile-icon.is-orange {
+  background: rgba(249, 115, 22, 0.12);
+  border-color: rgba(249, 115, 22, 0.2);
+}
+
+.ph-tile-content h3 {
+  font-size: 15px;
+  font-weight: 700;
+  margin: 0 0 4px;
+  color: #f8fafc;
+}
+
+.ph-tile-content p {
+  font-size: 13px;
+  color: #94a3b8;
+  margin: 0;
+  line-height: 1.4;
+}
+
+/* ── Watch Section ──────────────────────────────────────── */
+.ph-watch {
+  text-align: center;
+  padding: 48px 32px;
+  border-radius: 18px;
+  background:
+    radial-gradient(ellipse at 50% 100%, rgba(59, 130, 246, 0.08), transparent 50%),
+    linear-gradient(180deg, rgba(18, 24, 36, 0.9), rgba(8, 11, 18, 0.9));
+  border: 1px solid rgba(148, 163, 184, 0.1);
+  max-width: 700px;
+  margin: 0 auto;
+}
+
+.ph-watch h2 {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: #f8fafc;
+  margin: 0 0 12px;
+}
+
+.ph-watch p {
+  color: #94a3b8;
+  font-size: 14px;
+  max-width: 460px;
+  margin: 0 auto 28px;
+  line-height: 1.5;
+}
+
+.ph-watch-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+/* ── Footer CTA ─────────────────────────────────────────── */
+.ph-footer-cta {
+  text-align: center;
+  padding: 56px 24px;
+  border-top: 1px solid rgba(148, 163, 184, 0.08);
+}
+
+.ph-footer-cta h2 {
+  font-size: clamp(1.25rem, 3vw, 1.75rem);
+  font-weight: 800;
+  color: #f8fafc;
+  margin: 0 0 20px;
+}
+
+/* ── Registration Modal ─────────────────────────────────── */
+.ph-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 90000;
+  padding: 24px;
+  animation: ph-fade-in 0.25s ease;
+}
+
+@keyframes ph-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.ph-modal {
+  width: 100%;
+  max-width: 420px;
+  padding: 32px 28px;
+  border-radius: 20px;
+  background: rgba(12, 18, 30, 0.98);
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  box-shadow:
+    0 30px 80px rgba(0, 0, 0, 0.55),
+    0 0 40px rgba(220, 38, 38, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  text-align: center;
+  animation: ph-modal-in 0.3s ease;
+}
+
+@keyframes ph-modal-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.ph-modal-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  margin: 0 auto 20px;
+  background: rgba(220, 38, 38, 0.12);
+  border: 1px solid rgba(220, 38, 38, 0.25);
+}
+
+.ph-modal h2 {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: #f8fafc;
+  margin: 0 0 8px;
+}
+
+.ph-modal-sub {
+  color: #94a3b8;
+  font-size: 14px;
+  margin: 0 0 28px;
+  line-height: 1.5;
+}
+
+.ph-modal-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ph-modal-actions .ph-btn {
+  width: 100%;
+}
+
+.ph-modal-dismiss {
+  background: none;
+  border: none;
+  color: #64748b;
+  font-size: 13px;
+  cursor: pointer;
+  padding: 10px;
+  margin-top: 4px;
+  font-family: inherit;
+  transition: color 0.18s ease;
+}
+
+.ph-modal-dismiss:hover {
+  color: #94a3b8;
+  transform: none;
+}
+
+/* ── Responsive ─────────────────────────────────────────── */
+@media (max-width: 900px) {
+  .ph-tiles {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .ph-hero {
+    padding: 56px 16px 48px;
+  }
+
+  .ph-section {
+    padding: 40px 16px;
+  }
+
+  .ph-tiles {
+    grid-template-columns: 1fr;
+  }
+
+  .ph-featured {
+    padding: 24px 20px;
+  }
+
+  .ph-watch {
+    padding: 36px 20px;
+  }
+
+  .ph-modal {
+    padding: 24px 20px;
+  }
+
+  .ph-hero-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .ph-featured-actions {
+    flex-direction: column;
+  }
+
+  .ph-featured-actions .ph-btn {
+    width: 100%;
+  }
+}

@@ -15,6 +15,7 @@ const tournamentsRoutes = require("./routes/tournaments.routes");
 const videosRoutes = require("./routes/videos.routes");
 const adminTournamentsRoutes = require("./routes/admin.tournaments.routes");
 const adminVideosRoutes = require("./routes/admin.videos.routes");
+const adminUploadsRoutes = require("./routes/admin.uploads.routes");
 
 function buildCorsOptions() {
   const allowedOrigins = [
@@ -87,6 +88,7 @@ function createApp({ restrictedCors = false } = {}) {
   app.use("/api/admin/live-settings", adminLiveSettingsRoutes);
   app.use("/api/admin/tournaments", adminTournamentsRoutes);
   app.use("/api/admin/videos", adminVideosRoutes);
+  app.use("/api/admin/uploads/tournament-image", adminUploadsRoutes);
 
   app.use((error, req, res, next) => {
     console.error("[api error]", error);

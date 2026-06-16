@@ -32,22 +32,47 @@ function ViewTournaments() {
         <EmptyState icon="🏆" title="No tournaments available" description="Check back later for upcoming events." />
       ) : (
         <div className="admin-overview-grid">
-          {tournaments.map((t) => (
-            <Link key={t.id} to={`/videos?tournament=${t.id}`} className="admin-card" style={{ textDecoration: "none", color: "inherit", display: "flex", flexDirection: "column" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "16px" }}>
-                <span className="admin-match-mode-pill">{t.game_type}</span>
-                <span className={`status-badge is-${t.status === 'ongoing' ? 'live' : t.status === 'upcoming' ? 'pending' : 'completed'}`}>
-                  {t.status.toUpperCase()}
-                </span>
-              </div>
-              <h2 style={{ margin: "0 0 8px 0" }}>{t.name}</h2>
-              {t.season && <p className="admin-page-subtitle" style={{ margin: "0 0 12px 0" }}>{t.season}</p>}
-              {t.description && <p style={{ fontSize: "14px", color: "var(--jz-text-muted)", marginBottom: "16px", flex: 1 }}>{t.description}</p>}
-              <div style={{ marginTop: "auto", display: "flex", justifyContent: "flex-end" }}>
-                <span style={{ color: "var(--jz-accent-primary)", fontSize: "14px", fontWeight: "bold" }}>View Videos &rarr;</span>
-              </div>
-            </Link>
-          ))}
+          {tournaments.map((t) => {
+            const coverUrl = t.cover_image_url || t.banner_url;
+            const logoUrl = t.logo_image_url || t.logo_url;
+
+            return (
+              <Link key={t.id} to={`/videos?tournament=${t.id}`} className="admin-card" style={{ textDecoration: "none", color: "inherit", display: "flex", flexDirection: "column", overflow: "hidden", padding: 0 }}>
+                {coverUrl && (
+                  <div style={{ width: "100%", height: "140px", overflow: "hidden" }}>
+                    <img
+                      src={coverUrl}
+                      alt={t.name}
+                      style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                    />
+                  </div>
+                )}
+                <div style={{ padding: "18px 22px", flex: 1, display: "flex", flexDirection: "column" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "12px" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                      {logoUrl && (
+                        <img
+                          src={logoUrl}
+                          alt=""
+                          style={{ width: "28px", height: "28px", borderRadius: "6px", objectFit: "contain", border: "1px solid var(--jz-border)" }}
+                        />
+                      )}
+                      <span className="admin-match-mode-pill">{t.game_type}</span>
+                    </div>
+                    <span className={`status-badge is-${t.status === 'ongoing' ? 'live' : t.status === 'upcoming' ? 'pending' : 'completed'}`}>
+                      {t.status.toUpperCase()}
+                    </span>
+                  </div>
+                  <h2 style={{ margin: "0 0 8px 0" }}>{t.name}</h2>
+                  {t.season && <p className="admin-page-subtitle" style={{ margin: "0 0 12px 0" }}>{t.season}</p>}
+                  {t.description && <p style={{ fontSize: "14px", color: "var(--jz-text-muted)", marginBottom: "16px", flex: 1 }}>{t.description}</p>}
+                  <div style={{ marginTop: "auto", display: "flex", justifyContent: "flex-end" }}>
+                    <span style={{ color: "#fca5a5", fontSize: "14px", fontWeight: "bold" }}>View Videos &rarr;</span>
+                  </div>
+                </div>
+              </Link>
+            );
+          })}
         </div>
       )}
     </div>
