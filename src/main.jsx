@@ -8,8 +8,12 @@ import "./styles/admin-controller.css";
 
 // Hostname-based routing: admin subdomain gets AdminApp, everything else gets PublicApp
 const hostname = window.location.hostname;
-const isAdmin = 
-  hostname.startsWith("admin.") || hostname === "admin.jeiziproductions.dev";
+const ADMIN_HOSTS = [
+  "adminjeizi.vercel.app",
+  "admin.jeiziproductions.dev",
+];
+const isAdmin =
+  ADMIN_HOSTS.includes(hostname) || hostname.startsWith("admin.");
 
 function Root() {
   return isAdmin ? <AdminApp /> : <PublicApp />;

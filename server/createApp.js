@@ -23,6 +23,9 @@ function buildCorsOptions() {
     "https://www.jeiziproductions.dev",
     "https://jeiziproductions.dev",
     "https://admin.jeiziproductions.dev",
+    "https://jeiziproduction.vercel.app",
+    "https://adminjeizi.vercel.app",
+    "https://jeizi-overlay-v2.vercel.app",
     process.env.FRONTEND_URL,
     process.env.ADMIN_URL,
   ].filter(Boolean);
