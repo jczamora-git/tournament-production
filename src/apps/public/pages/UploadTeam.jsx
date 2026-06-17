@@ -14,10 +14,13 @@ function UploadTeam() {
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState("");
+  const [uploadStatus, setUploadStatus] = useState("");
   const [success, setSuccess] = useState("");
   const [error, setError] = useState("");
   const [uploadedFileName, setUploadedFileName] = useState("");
   const fileRef = useRef(null);
+
+  const VALID_TYPES = new Set(["image/png", "image/jpeg", "image/webp"]);
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -27,12 +30,21 @@ function UploadTeam() {
     if (fileRef.current) fileRef.current.click();
   };
 
+
   const handleFileUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     setUploadError("");
+    setUploadStatus("");
     setUploading(true);
+
+    // Validate type
+    if (!VALID_TYPES.has(file.type)) {
+      setUploadError("Invalid file type. Please upload PNG, JPG, or WebP.");
+      setUploading(false);
+      return;
+    }
 
     if (file.size > 3 * 1024 * 1024) {
       setUploadError("Logo file is too large. Please upload an image under 3MB.");
@@ -41,8 +53,22 @@ function UploadTeam() {
     }
 
     try {
+      // Step 1 — compress / convert to WebP
+      setUploadStatus("Optimizing logo...");
+      const { compressToWebp } = await import("../../../utils/imageCompressor");
+      const webpBlob = await compressToWebp(file);
+
+      // Step 2 — wrap in a File with a safe name (no spaces, parens, or original name)
+      const safeFile = new File(
+        [webpBlob],
+        `team-logo-${Date.now()}.webp`,
+        { type: "image/webp" },
+      );
+
+      // Step 3 — upload
+      setUploadStatus("Uploading logo...");
       const formData = new FormData();
-      formData.append("file", file);
+      formData.append("file", safeFile);
 
       const res = await fetch(apiUrl("/api/uploads/team-logo"), {
         method: "POST",
@@ -56,14 +82,17 @@ function UploadTeam() {
 
       const data = await res.json();
       setForm((prev) => ({ ...prev, logo_url: data.url }));
-      setUploadedFileName(file.name);
+      setUploadedFileName(safeFile.name);
+      setUploadStatus("Logo uploaded successfully");
     } catch (err) {
-      setUploadError(err.message || "Logo upload failed. Please try again.");
+      setUploadError("Logo upload failed. Please try another image.");
+      setUploadStatus("");
     } finally {
       setUploading(false);
       if (fileRef.current) fileRef.current.value = "";
     }
   };
+
 
   const removeLogo = () => {
     setForm((prev) => ({ ...prev, logo_url: "" }));
@@ -160,7 +189,7 @@ function UploadTeam() {
               >
                 <svg className="custom-upload-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
                 <div className="custom-upload-text">
-                  {uploading ? "Uploading..." : "Choose Logo"}
+                  {uploading ? (uploadStatus || "Uploading...") : "Choose Logo"}
                 </div>
                 {!uploading && <div className="custom-upload-subtext">Click to browse files</div>}
               </div>

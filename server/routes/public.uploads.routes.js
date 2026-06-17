@@ -23,6 +23,10 @@ function makeSafeName(originalname) {
 }
 
 router.post("/", upload.single("file"), async (req, res) => {
+  console.log("[team-logo-upload] route reached", {
+    contentType: req.headers["content-type"],
+    origin: req.headers.origin,
+  });
   try {
     if (!req.file) {
       return res.status(400).json({ message: "No file uploaded" });
