@@ -1,6 +1,6 @@
 const express = require("express");
 const multer = require("multer");
-const { uploadTournamentImage } = require("../services/supabaseStorage");
+const { uploadImage } = require("../services/storage");
 const db = require("../db");
 
 const router = express.Router();
@@ -43,44 +43,21 @@ router.post("/", upload.single("file"), async (req, res) => {
       return res.status(400).json({ message: "Invalid logo file type. Please upload PNG, JPG, or WebP." });
     }
 
-    const { createClient } = require("@supabase/supabase-js");
-
-    const supabaseUrl = process.env.SUPABASE_URL;
-    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY;
-    const bucket = process.env.SUPABASE_STORAGE_BUCKET || "jeizi-storage";
-
-    if (!supabaseUrl || !supabaseKey) {
-      return res.status(500).json({ message: "Storage not configured" });
-    }
-
-    const supabase = createClient(supabaseUrl, supabaseKey);
     const safeName = makeSafeName(req.file.originalname);
     const date = new Date().toISOString().split("T")[0];
-    const filePath = `team-submissions/${date}/${Date.now()}-${safeName}`;
+    const filename = `${Date.now()}-${safeName}`;
 
-    const { error } = await supabase.storage
-      .from(bucket)
-      .upload(filePath, req.file.buffer, {
-        contentType: req.file.mimetype,
-        upsert: true,
-      });
+    const result = await uploadImage({
+      file: req.file.buffer,
+      folder: `team-submissions/${date}`,
+      filename,
+      mimetype: req.file.mimetype,
+    });
 
-    if (error) {
-      console.error("Team logo upload failed", {
-        message: error.message,
-        code: error.code,
-        status: error.status,
-        details: error.details,
-      });
-      return res.status(500).json({ message: "Logo upload failed. Please try again." });
-    }
-
-    const { data } = supabase.storage.from(bucket).getPublicUrl(filePath);
-
-    res.json({ success: true, url: data.publicUrl, path: filePath });
+    res.json({ success: true, url: result.url, path: result.path });
   } catch (error) {
     console.error("Team logo upload error:", error);
-    res.status(500).json({ message: "Logo upload failed. Please try again." });
+    res.status(500).json({ message: error.message || "Logo upload failed. Please try again." });
   }
 });
 

@@ -1,9 +1,9 @@
 const path = require("path");
 const fs = require("fs");
 const multer = require("multer");
+const { storageDriver, localUploadsDir } = require("../services/storage");
 
 const allowedExtensions = new Set([".png", ".jpg", ".jpeg", ".webp", ".svg"]);
-const isVercel = process.env.VERCEL === "1";
 
 const sanitizeFilename = (filename) =>
   filename
@@ -19,13 +19,13 @@ const slugifyTeamName = (teamName) =>
     .replace(/[^a-z0-9_-]/g, "") || "team";
 
 const createStorage = (subfolder, filenameFn) => {
-  if (isVercel) {
+  if (storageDriver !== "local") {
     return multer.memoryStorage();
   }
 
   return multer.diskStorage({
     destination: (req, file, cb) => {
-      const uploadPath = path.join(__dirname, "..", "uploads", subfolder);
+      const uploadPath = path.join(localUploadsDir, subfolder);
       fs.mkdirSync(uploadPath, { recursive: true });
       cb(null, uploadPath);
     },
@@ -59,6 +59,6 @@ const uploadTeamLogo = multer({
 });
 
 module.exports = {
-  isVercel,
+  storageDriver,
   uploadTeamLogo,
 };

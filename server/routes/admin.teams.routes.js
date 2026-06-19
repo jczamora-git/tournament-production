@@ -1,7 +1,9 @@
+const path = require("path");
 const express = require("express");
 const db = require("../db");
 const requireAdmin = require("../middleware/requireAdmin");
-const { isVercel, uploadTeamLogo } = require("../middleware/upload");
+const { storageDriver, uploadTeamLogo } = require("../middleware/upload");
+const { uploadImage } = require("../services/storage");
 
 const router = express.Router();
 
@@ -27,12 +29,19 @@ router.post("/", uploadTeamLogo.single("logo"), async (req, res) => {
     let logoPath = logo || null;
 
     if (req.file) {
-      if (isVercel) {
-        return res.status(400).json({
-          message: "Logo file upload is not supported on Vercel. Please use a logo URL instead.",
+      if (storageDriver === "local") {
+        logoPath = `/uploads/teams/${req.file.filename}`;
+      } else {
+        const ext = path.extname(req.file.originalname).toLowerCase();
+        const filename = `team_logo_${Date.now()}${ext}`;
+        const result = await uploadImage({
+          file: req.file.buffer,
+          folder: "teams",
+          filename,
+          mimetype: req.file.mimetype,
         });
+        logoPath = result.url;
       }
-      logoPath = `/uploads/teams/${req.file.filename}`;
     }
 
     const insertSql =
@@ -62,12 +71,19 @@ router.put("/:id", uploadTeamLogo.single("logo"), async (req, res) => {
     const hasLogoField = Object.prototype.hasOwnProperty.call(req.body, "logo");
 
     if (req.file) {
-      if (isVercel) {
-        return res.status(400).json({
-          message: "Logo file upload is not supported on Vercel. Please use a logo URL instead.",
+      if (storageDriver === "local") {
+        nextLogo = `/uploads/teams/${req.file.filename}`;
+      } else {
+        const ext = path.extname(req.file.originalname).toLowerCase();
+        const filename = `team_logo_${Date.now()}${ext}`;
+        const result = await uploadImage({
+          file: req.file.buffer,
+          folder: "teams",
+          filename,
+          mimetype: req.file.mimetype,
         });
+        nextLogo = result.url;
       }
-      nextLogo = `/uploads/teams/${req.file.filename}`;
     } else if (hasLogoField) {
       nextLogo = logo || null;
     } else {

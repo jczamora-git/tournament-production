@@ -1,7 +1,7 @@
 const express = require("express");
 const multer = require("multer");
 const requireAdmin = require("../middleware/requireAdmin");
-const { uploadTournamentImage } = require("../services/supabaseStorage");
+const { uploadImage } = require("../services/storage");
 
 const router = express.Router();
 
@@ -16,6 +16,13 @@ const ALLOWED_MIMETYPES = new Set([
   "image/webp",
   "image/gif",
 ]);
+
+function makeSafeName(originalname) {
+  return originalname
+    .toLowerCase()
+    .replace(/[^a-z0-9.\-_]/g, "-")
+    .replace(/-+/g, "-");
+}
 
 router.post("/", requireAdmin, upload.single("file"), async (req, res) => {
   try {
@@ -33,13 +40,16 @@ router.post("/", requireAdmin, upload.single("file"), async (req, res) => {
       return res.status(400).json({ message: "Field 'type' must be 'cover' or 'logo'" });
     }
 
-    const result = await uploadTournamentImage(
-      req.file.buffer,
-      req.file.mimetype,
-      req.file.originalname,
-      type,
-      tournament_id
-    );
+    const folder = `tournaments/${tournament_id || "general"}`;
+    const safeName = makeSafeName(req.file.originalname);
+    const filename = `${type}-${Date.now()}-${safeName}`;
+
+    const result = await uploadImage({
+      file: req.file.buffer,
+      folder,
+      filename,
+      mimetype: req.file.mimetype,
+    });
 
     res.json({ success: true, url: result.url, path: result.path });
   } catch (error) {
