@@ -5,10 +5,9 @@ import { apiUrl } from "../../../config/api";
 
 const MODAL_KEY = "jeizi_registration_modal_dismissed";
 
-function RegistrationModal({ onClose, tournament }) {
+function RegistrationModal({ onClose, uploadUrl, tournament }) {
   const navigate = useNavigate();
   const name = tournament?.name;
-  const uploadUrl = tournament ? `/upload-team?tournament=${tournament.id}` : "/upload-team";
 
   return (
     <div className="ph-modal-backdrop" onClick={onClose}>
@@ -102,6 +101,21 @@ function PublicHome() {
     sessionStorage.setItem(MODAL_KEY, "true");
   };
 
+  const isDatabaseTrue = (value) => value === true || value === 1 || value === "1" || value === "true";
+  
+  const REGISTRATION_STATUSES = new Set(["upcoming", "ongoing"]);
+  
+  const isRegistrationTournament = (tournament) => {
+    const status = String(tournament?.status || "").trim().toLowerCase();
+    return isDatabaseTrue(tournament?.is_active) && REGISTRATION_STATUSES.has(status);
+  };
+
+  const eligibleTournaments = tournaments.filter(isRegistrationTournament);
+  
+  const uploadUrl = eligibleTournaments.length === 1 
+    ? `/upload-team?tournament=${eligibleTournaments[0].id}`
+    : "/upload-team";
+
   const featured =
     tournaments.find((t) => t.status === "ongoing" && t.is_active) ||
     tournaments.find((t) => t.status === "upcoming" && t.is_active) ||
@@ -152,7 +166,7 @@ function PublicHome() {
         )}
         <div className="ph-hero-actions">
           {uploadEnabled ? (
-            <Link to={featured ? `/upload-team?tournament=${featured.id}` : "/upload-team"} className="ph-btn ph-btn-primary">
+            <Link to={uploadUrl} className="ph-btn ph-btn-primary">
               Upload Team
             </Link>
           ) : (
@@ -197,7 +211,7 @@ function PublicHome() {
                 View Tournament
               </Link>
               {uploadEnabled && (
-                <Link to={`/upload-team?tournament=${featured.id}`} className="ph-btn ph-btn-primary">
+                <Link to={uploadUrl} className="ph-btn ph-btn-primary">
                   Upload Team
                 </Link>
               )}
@@ -304,7 +318,7 @@ function PublicHome() {
       </section>
 
       {/* Registration Modal */}
-      {showModal && <RegistrationModal onClose={dismissModal} tournament={featured} />}
+      {showModal && eligibleTournaments.length > 0 && <RegistrationModal onClose={dismissModal} uploadUrl={uploadUrl} tournament={eligibleTournaments.length === 1 ? eligibleTournaments[0] : featured} />}
     </div>
   );
 }

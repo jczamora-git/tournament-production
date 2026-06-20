@@ -1,10 +1,68 @@
 import { useState, useRef, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import { submitTeam, getTournaments, getTournamentModes } from "../../../services/api";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { submitTeam, getTournaments } from "../../../services/api";
 import { apiUrl } from "../../../config/api";
+
+const isDatabaseTrue = (value) => value === true || value === 1 || value === "1" || value === "true";
+const REGISTRATION_STATUSES = new Set(["upcoming", "ongoing"]);
+const isRegistrationTournament = (tournament) => {
+  const status = String(tournament?.status || "").trim().toLowerCase();
+  return isDatabaseTrue(tournament?.is_active) && REGISTRATION_STATUSES.has(status);
+};
+
+function truncateModeCaption(value, maxLength = 12) {
+  const text = String(value || "").trim().toUpperCase();
+
+  if (text.length <= maxLength) {
+    return text;
+  }
+
+  return `${text.slice(0, maxLength - 3).trimEnd()}...`;
+}
+
+function getModeTileContent(mode) {
+  const code = String(mode?.code || "")
+    .trim()
+    .toUpperCase();
+
+  switch (code) {
+    case "MP":
+      return {
+        heading: "MP",
+        caption: "MULTIPLAYER",
+      };
+
+    case "BR":
+      return {
+        heading: "BR",
+        caption: "BATTLE ROYALE",
+      };
+
+    case "MOBA":
+      return {
+        heading: "MOBA",
+        caption: "5V5",
+      };
+
+    case "MAGIC_CHESS":
+      return {
+        heading: "MAGIC",
+        caption: "ARCADE MODE",
+      };
+
+    default:
+      return {
+        heading: code || "MODE",
+        caption: String(mode?.name || "SELECT")
+          .trim()
+          .toUpperCase(),
+      };
+  }
+}
 
 function UploadTeam() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [form, setForm] = useState({
     team_name: "",
     shortname: "",
@@ -29,15 +87,21 @@ function UploadTeam() {
   const [uploadEnabled, setUploadEnabled] = useState(true);
   const [closedMessage, setClosedMessage] = useState("");
 
-  // Tournament/mode data
   const [tournaments, setTournaments] = useState([]);
   const [modes, setModes] = useState([]);
   const [selectedTournament, setSelectedTournament] = useState(null);
   const [selectedMode, setSelectedMode] = useState(null);
 
+  const [selectionInitialized, setSelectionInitialized] = useState(false);
+  const [selectionModal, setSelectionModal] = useState(null);
+
+  const canChangeTournament = tournaments.length > 1;
+  const canChangeMode = modes.length > 1;
+  const canChangeSelection = canChangeTournament || canChangeMode;
+
   useEffect(() => {
     Promise.all([
-      fetch(apiUrl("/api/public-settings"))
+      fetch(apiUrl("/api/public-settings"), { cache: "no-store" })
         .then((res) => res.json())
         .then((data) => {
           setUploadEnabled(data.team_upload_enabled !== false);
@@ -48,45 +112,111 @@ function UploadTeam() {
         }),
       getTournaments()
         .then((data) => {
-          setTournaments(data);
-          // Auto-select if only one tournament
-          if (data.length === 1) {
-            const t = data[0];
-            setSelectedTournament(t);
-            setForm((prev) => ({ ...prev, tournament_id: String(t.id) }));
-          }
+          const eligible = (data || []).filter(isRegistrationTournament);
+          eligible.sort((a, b) => {
+            const statusA = String(a.status).trim().toLowerCase();
+            const statusB = String(b.status).trim().toLowerCase();
+            if (statusA !== statusB) {
+              if (statusA === "ongoing") return -1;
+              if (statusB === "ongoing") return 1;
+            }
+            if (a.start_date && b.start_date) {
+              return new Date(a.start_date) - new Date(b.start_date);
+            }
+            return (a.name || "").localeCompare(b.name || "");
+          });
+          setTournaments(eligible);
         })
         .catch(() => setTournaments([])),
     ]).finally(() => setSettingsLoading(false));
   }, []);
 
-  // Load modes when tournament changes
   useEffect(() => {
+    if (settingsLoading || selectionInitialized) return;
+    
+    if (!uploadEnabled || tournaments.length === 0) {
+      setSelectionInitialized(true);
+      return;
+    }
+
+    const tParam = searchParams.get("tournament");
+    let foundTournament = null;
+
+    if (tParam) {
+      foundTournament = tournaments.find((t) => String(t.id) === tParam);
+      if (!foundTournament) {
+        const newParams = new URLSearchParams(searchParams);
+        newParams.delete("tournament");
+        newParams.delete("mode");
+        setSearchParams(newParams, { replace: true });
+      }
+    }
+
+    if (!foundTournament && tournaments.length === 1) {
+      foundTournament = tournaments[0];
+    }
+
+    if (foundTournament) {
+      setSelectedTournament(foundTournament);
+      setForm((prev) => ({ ...prev, tournament_id: String(foundTournament.id) }));
+      const newParams = new URLSearchParams(searchParams);
+      newParams.set("tournament", foundTournament.id);
+      setSearchParams(newParams, { replace: true });
+    } else {
+      setSelectionModal("tournament");
+    }
+
+    setSelectionInitialized(true);
+  }, [settingsLoading, selectionInitialized, uploadEnabled, tournaments, searchParams, setSearchParams]);
+
+  useEffect(() => {
+    let isMounted = true;
     if (form.tournament_id) {
-      getTournamentModes(form.tournament_id)
+      fetch(apiUrl(`/api/tournaments/${form.tournament_id}/modes`), { cache: "no-store" })
+        .then(res => res.json())
         .then((data) => {
-          // Filter to only upload-enabled modes
-          const uploadModes = data.filter((m) => m.team_upload_enabled);
+          if (!isMounted) return;
+          const uploadModes = (data || []).filter(
+            (m) => isDatabaseTrue(m.is_active) && isDatabaseTrue(m.team_upload_enabled) && String(m.tournament_id) === form.tournament_id
+          );
           setModes(uploadModes);
-          // Auto-select if only one mode
-          if (uploadModes.length === 1) {
-            setSelectedMode(uploadModes[0]);
-            setForm((prev) => ({ ...prev, tournament_mode_id: String(uploadModes[0].id) }));
-          } else {
-            setForm((prev) => ({ ...prev, tournament_mode_id: "" }));
-            setSelectedMode(null);
+
+          if (!form.tournament_mode_id) {
+            const mParam = searchParams.get("mode");
+            let foundMode = null;
+            if (mParam) {
+              foundMode = uploadModes.find((m) => String(m.id) === mParam);
+              if (!foundMode) {
+                const newParams = new URLSearchParams(searchParams);
+                newParams.delete("mode");
+                setSearchParams(newParams, { replace: true });
+              }
+            }
+
+            if (!foundMode && uploadModes.length === 1) {
+              foundMode = uploadModes[0];
+            }
+
+            if (foundMode) {
+              setSelectedMode(foundMode);
+              setForm((prev) => ({ ...prev, tournament_mode_id: String(foundMode.id) }));
+              const newParams = new URLSearchParams(searchParams);
+              newParams.set("mode", foundMode.id);
+              setSearchParams(newParams, { replace: true });
+            } else if (uploadModes.length > 1) {
+              setSelectionModal("mode");
+            } else {
+              setSelectionModal(null);
+            }
           }
         })
         .catch(() => {
+          if (!isMounted) return;
           setModes([]);
-          setForm((prev) => ({ ...prev, tournament_mode_id: "" }));
-          setSelectedMode(null);
+          setSelectionModal(null);
         });
-    } else {
-      setModes([]);
-      setForm((prev) => ({ ...prev, tournament_mode_id: "" }));
-      setSelectedMode(null);
     }
+    return () => { isMounted = false; };
   }, [form.tournament_id]);
 
   const VALID_TYPES = new Set(["image/png", "image/jpeg", "image/webp"]);
@@ -95,25 +225,95 @@ function UploadTeam() {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
-  const handleTournamentChange = (e) => {
-    const val = e.target.value;
-    const t = tournaments.find((t) => String(t.id) === val) || null;
+  const handleTournamentSelect = (t) => {
     setSelectedTournament(t);
-    setForm({ ...form, tournament_id: val, tournament_mode_id: "" });
+    setForm((prev) => ({ ...prev, tournament_id: String(t.id), tournament_mode_id: "" }));
     setSelectedMode(null);
+    setSelectionModal(null);
+    
+    const newParams = new URLSearchParams(searchParams);
+    newParams.set("tournament", t.id);
+    newParams.delete("mode");
+    setSearchParams(newParams, { replace: true });
   };
 
-  const handleModeChange = (e) => {
-    const val = e.target.value;
-    const m = modes.find((m) => String(m.id) === val) || null;
+  const applyModeSelection = (m) => {
+    if (!selectedTournament) return;
+    if (Number(m.tournament_id) !== Number(selectedTournament.id)) return;
+
     setSelectedMode(m);
-    setForm({ ...form, tournament_mode_id: val });
+    setForm((prev) => ({ ...prev, tournament_id: String(selectedTournament.id), tournament_mode_id: String(m.id) }));
+    setSelectionModal(null);
+    
+    const newParams = new URLSearchParams(searchParams);
+    newParams.set("tournament", selectedTournament.id);
+    newParams.set("mode", m.id);
+    setSearchParams(newParams, { replace: true });
+  };
+
+  const handleChangeSelection = () => {
+    if (canChangeTournament) {
+      setSelectedTournament(null);
+      setSelectedMode(null);
+      setForm((current) => ({
+        ...current,
+        tournament_id: "",
+        tournament_mode_id: "",
+      }));
+      
+      const newParams = new URLSearchParams(searchParams);
+      newParams.delete("tournament");
+      newParams.delete("mode");
+      setSearchParams(newParams, { replace: true });
+      
+      setSelectionModal("tournament");
+      return;
+    }
+
+    if (canChangeMode) {
+      setSelectedMode(null);
+      setForm((current) => ({
+        ...current,
+        tournament_mode_id: "",
+      }));
+      
+      const newParams = new URLSearchParams(searchParams);
+      if (selectedTournament) {
+        newParams.set("tournament", selectedTournament.id);
+      }
+      newParams.delete("mode");
+      setSearchParams(newParams, { replace: true });
+      
+      setSelectionModal("mode");
+    }
+  };
+
+  const reopenRequiredSelection = () => {
+    if (!selectedTournament) {
+      if (canChangeTournament) {
+        setSelectionModal("tournament");
+        return;
+      }
+      if (tournaments.length === 1) {
+        handleTournamentSelect(tournaments[0]);
+        return;
+      }
+    }
+
+    if (!selectedMode) {
+      if (canChangeMode) {
+        setSelectionModal("mode");
+        return;
+      }
+      if (modes.length === 1) {
+        applyModeSelection(modes[0]);
+      }
+    }
   };
 
   const triggerFileSelect = () => {
     if (fileRef.current) fileRef.current.click();
   };
-
 
   const handleFileUpload = async (e) => {
     const file = e.target.files?.[0];
@@ -123,7 +323,6 @@ function UploadTeam() {
     setUploadStatus("");
     setUploading(true);
 
-    // Validate type
     if (!VALID_TYPES.has(file.type)) {
       setUploadError("Invalid file type. Please upload PNG, JPG, or WebP.");
       setUploading(false);
@@ -137,19 +336,16 @@ function UploadTeam() {
     }
 
     try {
-      // Step 1 — compress / convert to WebP
       setUploadStatus("Optimizing logo...");
       const { compressToWebp } = await import("../../../utils/imageCompressor");
       const webpBlob = await compressToWebp(file);
 
-      // Step 2 — wrap in a File with a safe name (no spaces, parens, or original name)
       const safeFile = new File(
         [webpBlob],
         `team-logo-${Date.now()}.webp`,
         { type: "image/webp" },
       );
 
-      // Step 3 — upload
       setUploadStatus("Uploading logo...");
       const formData = new FormData();
       formData.append("file", safeFile);
@@ -176,7 +372,6 @@ function UploadTeam() {
       if (fileRef.current) fileRef.current.value = "";
     }
   };
-
 
   const removeLogo = () => {
     setForm((prev) => ({ ...prev, logo_url: "" }));
@@ -217,10 +412,8 @@ function UploadTeam() {
         tournament_id: Number(form.tournament_id),
         tournament_mode_id: Number(form.tournament_mode_id),
       };
-      const result = await submitTeam(payload);
+      await submitTeam(payload);
       setShowSuccessModal(true);
-      setForm({ team_name: "", shortname: "", captain_name: "", contact: "", logo_url: "", notes: "", tournament_id: "", tournament_mode_id: "" });
-      setUploadedFileName("");
       
       setTimeout(() => {
         navigate("/");
@@ -240,14 +433,16 @@ function UploadTeam() {
     );
   }
 
-  if (!uploadEnabled) {
+  if (!uploadEnabled || (selectionInitialized && tournaments.length === 0)) {
     return (
       <div className="ph-section team-upload-page">
         <div className="team-registration-card" style={{ textAlign: "center", padding: "60px 20px" }}>
           <div style={{ fontSize: "48px", marginBottom: "20px" }}>🔒</div>
-          <h2 style={{ fontSize: "24px", color: "#f8fafc", marginBottom: "16px" }}>Team Registration Closed</h2>
+          <h2 style={{ fontSize: "24px", color: "#f8fafc", marginBottom: "16px" }}>
+            {uploadEnabled ? "Registration Unavailable" : "Team Registration Closed"}
+          </h2>
           <p style={{ color: "#94a3b8", fontSize: "16px", marginBottom: "32px", lineHeight: "1.6" }}>
-            {closedMessage}
+            {uploadEnabled ? "No tournament is currently open for team registration." : closedMessage}
           </p>
           <button 
             type="button" 
@@ -262,6 +457,12 @@ function UploadTeam() {
     );
   }
 
+  const selectionComplete = Boolean(selectedTournament) && Boolean(selectedMode) && Boolean(form.tournament_id) && Boolean(form.tournament_mode_id);
+  const noModesAvailable = selectedTournament && modes.length === 0 && !settingsLoading;
+  const showBlankStateFallback = !loading && !selectionModal && !selectedMode && tournaments.length > 0 && selectionInitialized && !noModesAvailable && !selectionComplete;
+
+  const changeSelectionLabel = canChangeTournament ? "Change Tournament / Division" : canChangeMode ? "Change Division" : null;
+
   return (
     <div className="ph-section team-upload-page">
       <div className="ph-section-header">
@@ -273,163 +474,271 @@ function UploadTeam() {
         <p>Submit your squad for the current tournament.</p>
       </div>
 
-      <div className="team-registration-card">
-        <form onSubmit={handleSubmit}>
-          {error && <div className="admin-error-message">{error}</div>}
-          {success && <div className="admin-error-message" style={{ backgroundColor: "rgba(34, 197, 94, 0.12)", borderColor: "rgba(34, 197, 94, 0.4)", color: "#bbf7d0" }}>{success}</div>}
+      {selectionModal === "tournament" && (
+        <div className="ph-modal-backdrop">
+          <div className="ph-modal registration-selection-modal" role="dialog" aria-modal="true" aria-labelledby="reg-tourney-title">
+            <h2 id="reg-tourney-title">Select Tournament</h2>
+            <p className="ph-modal-sub">Choose the tournament where you want to register your team.</p>
+            
+            <div className="registration-selection-grid">
+              {tournaments.map(t => {
+                const coverUrl = t.cover_image_url || t.banner_url;
+                const logoUrl = t.logo_image_url || t.logo_url;
+                return (
+                  <button 
+                    key={t.id} 
+                    type="button"
+                    className="registration-selection-card" 
+                    onClick={() => handleTournamentSelect(t)}
+                  >
+                    <div className="registration-selection-card-cover">
+                      {coverUrl ? <img src={coverUrl} alt="" /> : <div style={{width:'100%', height:'100%', background:'#2f3336'}} />}
+                      {logoUrl && <img src={logoUrl} alt="" className="registration-selection-card-logo" />}
+                    </div>
+                    <div className="registration-selection-card-body">
+                      <h3 style={{ margin: 0, fontSize: "1rem", color: "#f8fafc" }}>{t.name}</h3>
+                      <div className="registration-selection-card-meta">
+                        <span style={{ color: "#dc2626", fontWeight: "bold" }}>{t.game_type}</span>
+                        {t.season && <span>• {t.season}</span>}
+                      </div>
+                      <div className="registration-selection-card-meta" style={{ marginTop: "auto" }}>
+                        <span className="ph-featured-status" style={{ fontSize: "0.65rem", padding: "2px 6px" }}>{t.status.toUpperCase()}</span>
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
 
-          {/* Tournament selector */}
-          <div className="form-group">
-            <label>Tournament *</label>
-            <p className="form-helper-text">Select the tournament you are registering for.</p>
-            {tournaments.length === 0 ? (
-              <p style={{ color: "#fca5a5", fontSize: "14px" }}>No active tournaments available for registration.</p>
-            ) : tournaments.length === 1 ? (
-              <input type="text" value={tournaments[0].name} disabled style={{ opacity: 0.7 }} />
-            ) : (
-              <select name="tournament_id" value={form.tournament_id} onChange={handleTournamentChange}>
-                <option value="">Select tournament</option>
-                {tournaments.map((t) => (
-                  <option key={t.id} value={t.id}>{t.name}</option>
-                ))}
-              </select>
-            )}
+            <div className="ph-modal-actions" style={{ marginTop: "1rem" }}>
+              <button className="ph-btn ph-btn-secondary" onClick={() => navigate("/")}>
+                Back to Home
+              </button>
+            </div>
           </div>
+        </div>
+      )}
 
-          {/* Mode selector */}
-          {form.tournament_id && (
-            <div className="form-group">
-              <label>Division / Mode *</label>
-              <p className="form-helper-text">Select the division you are joining. Teams registered under different divisions are separate entries.</p>
-              {modes.length === 0 ? (
-                <p style={{ color: "#fca5a5", fontSize: "14px" }}>No divisions available for registration in this tournament.</p>
-              ) : modes.length === 1 ? (
-                <input type="text" value={modes[0].name} disabled style={{ opacity: 0.7 }} />
-              ) : (
-                <select name="tournament_mode_id" value={form.tournament_mode_id} onChange={handleModeChange}>
-                  <option value="">Select division</option>
-                  {modes.map((m) => (
-                    <option key={m.id} value={m.id}>{m.name}</option>
-                  ))}
-                </select>
+      {selectionModal === "mode" && selectedTournament && (
+        <div className="ph-modal-backdrop">
+          <div className="ph-modal registration-selection-modal" role="dialog" aria-modal="true" aria-labelledby="reg-mode-title">
+            <div className="registration-selection-header">
+              <span className="registration-selection-eyebrow">Select Division</span>
+              <h2 id="reg-mode-title" className="registration-selection-title">{selectedTournament.name}</h2>
+            </div>
+            
+            <div className="registration-mode-grid">
+              {modes.map(m => {
+                const tile = getModeTileContent(m);
+                return (
+                  <button 
+                    key={m.id} 
+                    type="button"
+                    className="registration-mode-tile" 
+                    onClick={() => applyModeSelection(m)}
+                    aria-label={`Select ${m.name || tile.heading}`}
+                  >
+                    <span className="registration-mode-tile-heading">
+                      {tile.heading}
+                    </span>
+                    <span 
+                      className="registration-mode-tile-caption"
+                      title={tile.caption}
+                    >
+                      {truncateModeCaption(tile.caption, 12)}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="registration-selection-footer">
+              {canChangeTournament && (
+                <button className="ph-btn ph-btn-secondary" onClick={handleChangeSelection}>
+                  Choose Another Tournament
+                </button>
+              )}
+              <button className="ph-btn ph-btn-secondary" onClick={() => navigate("/")}>
+                Back to Home
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {noModesAvailable && !selectionModal && (
+        <div className="registration-empty-state">
+          <div style={{ fontSize: "32px", marginBottom: "1rem" }}>⚠️</div>
+          <h3 style={{ color: "#f8fafc", marginBottom: "0.5rem" }}>Registration Unavailable</h3>
+          <p style={{ color: "#94a3b8", marginBottom: "2rem" }}>Registration is not available for any division in this tournament.</p>
+          <div style={{ display: "flex", gap: "1rem", justifyContent: "center" }}>
+            {canChangeTournament && (
+              <button className="ph-btn ph-btn-primary" onClick={handleChangeSelection}>
+                Choose Another Tournament
+              </button>
+            )}
+            <button className="ph-btn ph-btn-secondary" onClick={() => navigate("/")}>
+              Back to Home
+            </button>
+          </div>
+        </div>
+      )}
+
+      {showBlankStateFallback && (
+        <div className="registration-empty-state">
+          <h3 style={{ color: "#f8fafc", marginBottom: "0.5rem" }}>Complete Registration Selection</h3>
+          <p style={{ color: "#94a3b8", marginBottom: "2rem" }}>Choose a tournament and division to continue.</p>
+          <div style={{ display: "flex", gap: "1rem", justifyContent: "center" }}>
+            <button className="ph-btn ph-btn-primary" onClick={reopenRequiredSelection}>
+              Continue Selection
+            </button>
+            <button className="ph-btn ph-btn-secondary" onClick={() => navigate("/")}>
+              Back to Home
+            </button>
+          </div>
+        </div>
+      )}
+
+      {selectionComplete && (
+        <div className="team-registration-card">
+          <div className="registration-selection-summary">
+            <div className="registration-selection-summary-details">
+              <p style={{ fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.05em", color: "#8899a6", marginBottom: "4px" }}>Registering For</p>
+              <h3>{selectedTournament.name}</h3>
+              <p>{selectedMode?.name || selectedMode?.code || "Mode"}</p>
+              <p style={{ fontSize: "0.75rem", marginTop: "4px" }}>
+                {selectedTournament?.game_type || "Tournament"}
+                {selectedMode?.code ? ` • ${selectedMode.code}` : ""}
+              </p>
+            </div>
+            <div className="registration-selection-summary-actions">
+              {changeSelectionLabel && (
+                <button type="button" className="ph-btn ph-btn-secondary" style={{ padding: "8px 12px", fontSize: "0.85rem", minHeight: "36px" }} onClick={handleChangeSelection}>
+                  {changeSelectionLabel}
+                </button>
               )}
             </div>
-          )}
-
-          <div className="form-group">
-            <label>Team Name *</label>
-            <p className="form-helper-text">Enter your official team name.</p>
-            <input
-              type="text"
-              name="team_name"
-              value={form.team_name}
-              onChange={handleChange}
-              placeholder="e.g. Team Liquid"
-            />
           </div>
 
-          <div className="form-group">
-            <label>Short Name / Tag *</label>
-            <p className="form-helper-text">Example: CMO, JZI, TNC</p>
-            <input
-              type="text"
-              name="shortname"
-              value={form.shortname}
-              onChange={handleChange}
-              placeholder="e.g. TL"
-            />
-          </div>
+          <form onSubmit={handleSubmit}>
+            {error && <div className="admin-error-message">{error}</div>}
+            {success && <div className="admin-error-message" style={{ backgroundColor: "rgba(34, 197, 94, 0.12)", borderColor: "rgba(34, 197, 94, 0.4)", color: "#bbf7d0" }}>{success}</div>}
 
-          <div className="form-group">
-            <label>Team Logo *</label>
-            <p className="form-helper-text">Upload your team logo in PNG, JPG, or WebP format. Max 3MB.</p>
-            
-            <input
-              ref={fileRef}
-              type="file"
-              accept="image/png,image/jpeg,image/webp"
-              onChange={handleFileUpload}
-              hidden
-            />
+            <div className="form-group">
+              <label>Team Name *</label>
+              <p className="form-helper-text">Enter your official team name.</p>
+              <input
+                type="text"
+                name="team_name"
+                value={form.team_name}
+                onChange={handleChange}
+                placeholder="e.g. Team Liquid"
+              />
+            </div>
 
-            {!form.logo_url && (
-              <div 
-                className={`custom-upload-card ${uploading ? "is-uploading" : ""}`}
-                onClick={triggerFileSelect}
-              >
-                <svg className="custom-upload-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
-                <div className="custom-upload-text">
-                  {uploading ? (uploadStatus || "Uploading...") : "Choose Logo"}
-                </div>
-                {!uploading && <div className="custom-upload-subtext">Click to browse files</div>}
-              </div>
-            )}
+            <div className="form-group">
+              <label>Short Name / Tag *</label>
+              <p className="form-helper-text">Example: CMO, JZI, TNC</p>
+              <input
+                type="text"
+                name="shortname"
+                value={form.shortname}
+                onChange={handleChange}
+                placeholder="e.g. TL"
+              />
+            </div>
 
-            {form.logo_url && (
-              <div className="upload-preview-container">
-                <img src={form.logo_url} alt="Logo preview" className="upload-logo-preview" />
-                <div className="upload-status">
-                  <div className="upload-status-title">
-                    <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7"/></svg>
-                    Logo uploaded successfully
+            <div className="form-group">
+              <label>Team Logo *</label>
+              <p className="form-helper-text">Upload your team logo in PNG, JPG, or WebP format. Max 3MB.</p>
+              
+              <input
+                ref={fileRef}
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                onChange={handleFileUpload}
+                hidden
+              />
+
+              {!form.logo_url && (
+                <div 
+                  className={`custom-upload-card ${uploading ? "is-uploading" : ""}`}
+                  onClick={triggerFileSelect}
+                >
+                  <svg className="custom-upload-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
+                  <div className="custom-upload-text">
+                    {uploading ? (uploadStatus || "Uploading...") : "Choose Logo"}
                   </div>
-                  <div className="upload-status-filename">{uploadedFileName || "Team Logo"}</div>
+                  {!uploading && <div className="custom-upload-subtext">Click to browse files</div>}
                 </div>
-                <div className="upload-actions">
-                  <button type="button" className="ph-btn ph-btn-secondary" style={{ padding: "8px 12px", minHeight: "36px", fontSize: "13px" }} onClick={triggerFileSelect}>
-                    Change
-                  </button>
-                  <button type="button" className="ph-btn ph-btn-secondary" style={{ padding: "8px 12px", minHeight: "36px", fontSize: "13px", color: "#fca5a5", borderColor: "rgba(220, 38, 38, 0.3)" }} onClick={removeLogo}>
-                    Remove
-                  </button>
+              )}
+
+              {form.logo_url && (
+                <div className="upload-preview-container">
+                  <img src={form.logo_url} alt="Logo preview" className="upload-logo-preview" />
+                  <div className="upload-status">
+                    <div className="upload-status-title">
+                      <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7"/></svg>
+                      Logo uploaded successfully
+                    </div>
+                    <div className="upload-status-filename">{uploadedFileName || "Team Logo"}</div>
+                  </div>
+                  <div className="upload-actions">
+                    <button type="button" className="ph-btn ph-btn-secondary" style={{ padding: "8px 12px", minHeight: "36px", fontSize: "13px" }} onClick={triggerFileSelect}>
+                      Change
+                    </button>
+                    <button type="button" className="ph-btn ph-btn-secondary" style={{ padding: "8px 12px", minHeight: "36px", fontSize: "13px", color: "#fca5a5", borderColor: "rgba(220, 38, 38, 0.3)" }} onClick={removeLogo}>
+                      Remove
+                    </button>
+                  </div>
                 </div>
-              </div>
-            )}
-            
-            {uploadError && <p style={{ color: "#fca5a5", fontSize: "13px", marginTop: "8px" }}>{uploadError}</p>}
-          </div>
+              )}
+              
+              {uploadError && <p style={{ color: "#fca5a5", fontSize: "13px", marginTop: "8px" }}>{uploadError}</p>}
+            </div>
 
-          <div className="form-group">
-            <label>Captain Name *</label>
-            <p className="form-helper-text">Person admins can contact for this team.</p>
-            <input
-              type="text"
-              name="captain_name"
-              value={form.captain_name}
-              onChange={handleChange}
-              placeholder="Captain's name"
-            />
-          </div>
+            <div className="form-group">
+              <label>Captain Name *</label>
+              <p className="form-helper-text">Person admins can contact for this team.</p>
+              <input
+                type="text"
+                name="captain_name"
+                value={form.captain_name}
+                onChange={handleChange}
+                placeholder="Captain's name"
+              />
+            </div>
 
-          <div className="form-group">
-            <label>Contact Number or Messenger Link *</label>
-            <p className="form-helper-text">Use a phone number, Facebook profile, or Messenger link.</p>
-            <input
-              type="text"
-              name="contact"
-              value={form.contact}
-              onChange={handleChange}
-              placeholder="e.g. 09xx-xxx-xxxx or m.me/username"
-            />
-          </div>
+            <div className="form-group">
+              <label>Contact Number or Messenger Link *</label>
+              <p className="form-helper-text">Use a phone number, Facebook profile, or Messenger link.</p>
+              <input
+                type="text"
+                name="contact"
+                value={form.contact}
+                onChange={handleChange}
+                placeholder="e.g. 09xx-xxx-xxxx or m.me/username"
+              />
+            </div>
 
-          <div className="form-group" style={{ marginBottom: "32px" }}>
-            <label>Notes</label>
-            <p className="form-helper-text">Add player list, remarks, or other details if needed.</p>
-            <textarea
-              name="notes"
-              value={form.notes}
-              onChange={handleChange}
-              placeholder="Any additional info about your team"
-              rows={4}
-            />
-          </div>
+            <div className="form-group" style={{ marginBottom: "32px" }}>
+              <label>Notes</label>
+              <p className="form-helper-text">Add player list, remarks, or other details if needed.</p>
+              <textarea
+                name="notes"
+                value={form.notes}
+                onChange={handleChange}
+                placeholder="Any additional info about your team"
+                rows={4}
+              />
+            </div>
 
-          <button type="submit" className="ph-btn ph-btn-primary" style={{ width: "100%", fontSize: "16px", padding: "14px" }} disabled={loading || uploading}>
-            {loading ? "Submitting..." : "Submit Team"}
-          </button>
-        </form>
-      </div>
+            <button type="submit" className="ph-btn ph-btn-primary" style={{ width: "100%", fontSize: "16px", padding: "14px" }} disabled={loading || uploading}>
+              {loading ? "Submitting..." : "Submit Team"}
+            </button>
+          </form>
+        </div>
+      )}
 
       {showSuccessModal && (
         <div className="submission-success-backdrop">
@@ -443,7 +752,7 @@ function UploadTeam() {
             <p className="submission-success-message">
               Your team has been submitted
               {selectedTournament ? ` for ${selectedTournament.name}` : ""}
-              {selectedMode ? ` — ${selectedMode.name}` : ""}.
+              {selectedMode ? ` — ${selectedMode.name || MODE_LABELS[selectedMode.code] || selectedMode.code}` : ""}.
               Please wait for admin approval.
             </p>
             <p style={{ color: "#64748b", fontSize: "13px" }}>Redirecting you back to the homepage...</p>

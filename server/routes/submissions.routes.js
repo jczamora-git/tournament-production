@@ -74,6 +74,7 @@ router.post("/", async (req, res) => {
         t.name AS tournament_name,
         t.game_type,
         t.is_active AS tournament_is_active,
+        t.status AS tournament_status,
         tm.id AS tournament_mode_id,
         tm.name AS mode_name,
         tm.code AS mode_code,
@@ -93,6 +94,14 @@ router.post("/", async (req, res) => {
     const modeData = rows[0];
 
     const isDatabaseTrue = (value) => value === true || value === 1 || value === "1" || value === "true";
+
+    const status = String(modeData.tournament_status || "").trim().toLowerCase();
+    const isRegistrationTournament = isDatabaseTrue(modeData.tournament_is_active) && 
+      (status === "upcoming" || status === "ongoing");
+
+    if (!isRegistrationTournament) {
+      return res.status(403).json({ message: "Team registration is not available for this tournament." });
+    }
 
     if (!isDatabaseTrue(modeData.tournament_is_active)) {
       return res.status(403).json({ message: "This tournament is not currently active." });

@@ -24,6 +24,83 @@ const COMPETITION_TYPES = [
   { value: "free_for_all", label: "Free for All" },
 ];
 
+const EMPTY_TOURNAMENT_FORM = {
+  name: "", slug: "", game_type: "MLBB", season: "", description: "",
+  status: "upcoming", banner_url: "", logo_url: "", cover_image_url: "", logo_image_url: "",
+  start_date: "", end_date: "", is_active: true
+};
+
+const TOURNAMENT_TEMPLATES = {
+  CMO_LEAGUE: {
+    key: "CMO_LEAGUE",
+    label: "CMO League",
+    baseName: "CMO LEAGUE",
+    baseSlug: "cmo-league",
+    gameType: "MLBB",
+    defaultModes: [
+      { code: "MOBA", name: "MOBA", competition_type: "head_to_head", team_upload_enabled: true, is_active: true, sort_order: 1 },
+    ],
+  },
+  CMO_BATTLEGROUNDS: {
+    key: "CMO_BATTLEGROUNDS",
+    label: "CMO Battlegrounds",
+    baseName: "CMO BATTLEGROUNDS",
+    baseSlug: "cmo-battlegrounds",
+    gameType: "CODM",
+    defaultModes: [
+      { code: "MP", name: "Multiplayer", competition_type: "head_to_head", team_upload_enabled: true, is_active: true, sort_order: 1 },
+      { code: "BR", name: "Battle Royale", competition_type: "battle_royale", team_upload_enabled: true, is_active: true, sort_order: 2 },
+    ],
+  },
+  CMO_CUP: {
+    key: "CMO_CUP",
+    label: "CMO CUP",
+    baseName: "CMO CUP",
+    baseSlug: "cmo-cup",
+    gameType: "HOK",
+    defaultModes: [
+      { code: "MOBA", name: "MOBA", competition_type: "head_to_head", team_upload_enabled: true, is_active: true, sort_order: 1 },
+    ],
+  },
+  CUSTOM: {
+    key: "CUSTOM",
+    label: "Custom Tournament",
+    baseName: "",
+    baseSlug: "",
+    gameType: "",
+    defaultModes: [],
+  },
+};
+
+function extractSeasonNumber(tournament) {
+  const values = [tournament?.season, tournament?.name, tournament?.slug];
+  for (const value of values) {
+    if (!value) continue;
+    const directNumber = String(value).trim().match(/^\d+$/);
+    if (directNumber) return Number(directNumber[0]);
+    const seasonMatch = String(value).match(/(?:season|s)[\s_-]*(\d+)/i);
+    if (seasonMatch) return Number(seasonMatch[1]);
+  }
+  return null;
+}
+
+function getNextSeasonForTemplate(template, tournaments) {
+  const matchingTournaments = tournaments.filter(t => {
+    const nameMatch = (t.name || "").toLowerCase().startsWith(template.baseName.toLowerCase());
+    const slugMatch = (t.slug || "").toLowerCase().startsWith(template.baseSlug.toLowerCase());
+    return nameMatch || slugMatch;
+  });
+
+  let maxSeason = 0;
+  for (const t of matchingTournaments) {
+    const seasonNum = extractSeasonNumber(t);
+    if (seasonNum && seasonNum > maxSeason) {
+      maxSeason = seasonNum;
+    }
+  }
+  return maxSeason + 1;
+}
+
 function ImageUploadCard({ title, helper, url, onUrlChange, type, tournamentId, previewVariant }) {
   const fileRef = useRef(null);
   const [uploading, setUploading] = useState(false);
@@ -185,13 +262,11 @@ function ManageTournaments() {
   const [editingTournament, setEditingTournament] = useState(null);
   const [uploading, setUploading] = useState(false);
 
-  const [formData, setFormData] = useState({
-    name: "", slug: "", game_type: "MLBB", season: "", description: "",
-    status: "upcoming", banner_url: "", logo_url: "", cover_image_url: "", logo_image_url: "",
-    start_date: "", end_date: "", is_active: true
-  });
+  const [formData, setFormData] = useState(EMPTY_TOURNAMENT_FORM);
   const [formModes, setFormModes] = useState(getDefaultModesForGame("MLBB"));
   const [customModes, setCustomModes] = useState([]);
+  const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
+  const [selectedTemplateKey, setSelectedTemplateKey] = useState(null);
 
   const fetchTournaments = async () => {
     setLoading(true);
@@ -207,24 +282,79 @@ function ManageTournaments() {
     fetchTournaments().catch(err => setToast({ message: err.message, type: "error" }));
   }, []);
 
-  const handleOpenForm = (tournament = null) => {
-    if (tournament) {
-      setEditingTournament(tournament);
-      setFormData({
-        name: tournament.name || "",
-        slug: tournament.slug || "",
-        game_type: tournament.game_type || "MLBB",
-        season: tournament.season || "",
-        description: tournament.description || "",
-        status: tournament.status || "upcoming",
-        banner_url: tournament.banner_url || "",
-        logo_url: tournament.logo_url || "",
-        cover_image_url: tournament.cover_image_url || "",
-        logo_image_url: tournament.logo_image_url || "",
-        start_date: tournament.start_date ? tournament.start_date.split('T')[0] : "",
-        end_date: tournament.end_date ? tournament.end_date.split('T')[0] : "",
-        is_active: tournament.is_active
-      });
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === "Escape" && isTemplateModalOpen) setIsTemplateModalOpen(false);
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isTemplateModalOpen]);
+
+  const applyTournamentTemplate = (templateKey) => {
+    const template = TOURNAMENT_TEMPLATES[templateKey];
+    if (!template) return;
+
+    if (template.key === "CUSTOM") {
+      setSelectedTemplateKey("CUSTOM");
+      setEditingTournament(null);
+      setFormData(EMPTY_TOURNAMENT_FORM);
+      setFormModes(getDefaultModesForGame("MLBB"));
+      setCustomModes([]);
+      setIsTemplateModalOpen(false);
+      setIsFormOpen(true);
+      return;
+    }
+
+    let nextSeason = getNextSeasonForTemplate(template, tournaments);
+    
+    let generatedSlug;
+    while (true) {
+      generatedSlug = `${template.baseSlug}-season-${nextSeason}`;
+      const slugExists = tournaments.some(t => t.slug === generatedSlug);
+      if (!slugExists) break;
+      nextSeason++;
+    }
+
+    setSelectedTemplateKey(template.key);
+    setEditingTournament(null);
+    setFormData({
+      ...EMPTY_TOURNAMENT_FORM,
+      name: `${template.baseName} SEASON ${nextSeason}`,
+      slug: generatedSlug,
+      game_type: template.gameType,
+      season: `Season ${nextSeason}`,
+    });
+
+    const mappedModes = template.defaultModes.map((mode, i) => ({
+      ...mode,
+      selected: true,
+      sort_order: mode.sort_order ?? i,
+    }));
+
+    setFormModes(mappedModes);
+    setCustomModes([]);
+    setIsTemplateModalOpen(false);
+    setIsFormOpen(true);
+  };
+
+  const handleEditClick = (tournament) => {
+    setSelectedTemplateKey(null);
+    setEditingTournament(tournament);
+    setFormData({
+      name: tournament.name || "",
+      slug: tournament.slug || "",
+      game_type: tournament.game_type || "MLBB",
+      season: tournament.season || "",
+      description: tournament.description || "",
+      status: tournament.status || "upcoming",
+      banner_url: tournament.banner_url || "",
+      logo_url: tournament.logo_url || "",
+      cover_image_url: tournament.cover_image_url || "",
+      logo_image_url: tournament.logo_image_url || "",
+      start_date: tournament.start_date ? tournament.start_date.split('T')[0] : "",
+      end_date: tournament.end_date ? tournament.end_date.split('T')[0] : "",
+      is_active: tournament.is_active !== false
+    });
 
       // Load existing modes
       const gt = tournament.game_type || "MLBB";
@@ -254,17 +384,13 @@ function ManageTournaments() {
         setFormModes(mapped);
         setCustomModes([]);
       }
-    } else {
-      setEditingTournament(null);
-      setFormData({
-        name: "", slug: "", game_type: "MLBB", season: "", description: "",
-        status: "upcoming", banner_url: "", logo_url: "", cover_image_url: "", logo_image_url: "",
-        start_date: "", end_date: "", is_active: true
-      });
-      setFormModes(getDefaultModesForGame("MLBB"));
-      setCustomModes([]);
-    }
     setIsFormOpen(true);
+  };
+
+  const handleCloseForm = () => {
+    setIsFormOpen(false);
+    setSelectedTemplateKey(null);
+    setEditingTournament(null);
   };
 
   const generateSlug = (name) => {
@@ -373,7 +499,7 @@ function ManageTournaments() {
         const result = await adminCreateTournament(dataToSave);
         setToast({ message: result?.message || "Tournament created successfully", type: "success" });
       }
-      setIsFormOpen(false);
+      handleCloseForm();
       success = true;
     } catch (createError) {
       console.error("Tournament save failed:", createError);
@@ -527,10 +653,60 @@ function ManageTournaments() {
           <h1>Manage Tournaments</h1>
           <p className="admin-page-subtitle">Add, edit, and manage tournaments.</p>
         </div>
-        <button className="button-primary" onClick={() => handleOpenForm()}>
+        <button className="button-primary" onClick={() => setIsTemplateModalOpen(true)}>
           Add Tournament
         </button>
       </div>
+
+      {isTemplateModalOpen && (
+        <div 
+          className="tournament-template-backdrop" 
+          onClick={(e) => {
+            if (e.target.className === "tournament-template-backdrop") setIsTemplateModalOpen(false);
+          }}
+        >
+          <div className="tournament-template-modal" role="dialog" aria-modal="true" aria-labelledby="template-modal-title">
+            <div className="tournament-template-header">
+              <h2 id="template-modal-title">Select Tournament Template</h2>
+              <button className="button-ghost button-compact" onClick={() => setIsTemplateModalOpen(false)}>✕</button>
+            </div>
+            
+            <div className="tournament-template-grid">
+              <div className="tournament-template-card" tabIndex="0" onClick={() => applyTournamentTemplate("CMO_LEAGUE")}>
+                <div className="tournament-template-card-title">CMO League</div>
+                <div className="tournament-template-card-game">Mobile Legends: Bang Bang (MLBB)</div>
+                <div className="tournament-template-card-modes">Default mode: MOBA</div>
+                <div className="tournament-template-card-desc">Official recurring Mobile Legends tournament series.</div>
+              </div>
+
+              <div className="tournament-template-card" tabIndex="0" onClick={() => applyTournamentTemplate("CMO_BATTLEGROUNDS")}>
+                <div className="tournament-template-card-title">CMO Battlegrounds</div>
+                <div className="tournament-template-card-game">Call of Duty: Mobile (CODM)</div>
+                <div className="tournament-template-card-modes">Default modes: Multiplayer, Battle Royale</div>
+                <div className="tournament-template-card-desc">Official CODM tournament series supporting MP and BR divisions.</div>
+              </div>
+
+              <div className="tournament-template-card" tabIndex="0" onClick={() => applyTournamentTemplate("CMO_CUP")}>
+                <div className="tournament-template-card-title">CMO CUP</div>
+                <div className="tournament-template-card-game">Honor of Kings (HOK)</div>
+                <div className="tournament-template-card-modes">Default mode: MOBA</div>
+                <div className="tournament-template-card-desc">Official recurring Honor of Kings tournament series.</div>
+              </div>
+
+              <div className="tournament-template-card" tabIndex="0" onClick={() => applyTournamentTemplate("CUSTOM")}>
+                <div className="tournament-template-card-title">Custom Tournament</div>
+                <div className="tournament-template-card-game">Selected manually</div>
+                <div className="tournament-template-card-modes">Modes: Selected manually</div>
+                <div className="tournament-template-card-desc">Create a custom tournament without preset game or naming values.</div>
+              </div>
+            </div>
+
+            <div className="tournament-template-actions">
+              <button className="button-secondary" onClick={() => setIsTemplateModalOpen(false)}>Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {isFormOpen ? (
         <div className="admin-card tournament-form" style={{ marginBottom: "24px" }}>
@@ -543,7 +719,7 @@ function ManageTournaments() {
                   : "Create a tournament event with branding, schedule, and game type."}
               </p>
             </div>
-            <button className="button-secondary button-compact" onClick={() => setIsFormOpen(false)}>Cancel</button>
+            <button type="button" className="button-secondary button-compact" onClick={handleCloseForm}>Cancel</button>
           </div>
 
           <form onSubmit={handleSave} className="tournament-form-body">
@@ -591,6 +767,11 @@ function ManageTournaments() {
                 <div className="form-group">
                   <label>Season</label>
                   <input value={formData.season} onChange={(e) => setFormData({ ...formData, season: e.target.value })} placeholder="e.g. Season 2" />
+                  {selectedTemplateKey && selectedTemplateKey !== "CUSTOM" && !editingTournament && (
+                    <p style={{ color: "var(--jz-text-soft)", fontSize: "11px", marginTop: "4px" }}>
+                      Suggested automatically from existing {TOURNAMENT_TEMPLATES[selectedTemplateKey].label} tournaments.
+                    </p>
+                  )}
                 </div>
                 <div className="form-group tournament-form-full">
                   <label>Description</label>
@@ -677,7 +858,7 @@ function ManageTournaments() {
               <button type="submit" className="button-primary tournament-form-save" disabled={saving || uploading}>
                 {saving ? "Saving Tournament..." : "Save Tournament"}
               </button>
-              <button type="button" className="button-secondary" onClick={() => setIsFormOpen(false)}>
+              <button type="button" className="button-secondary" onClick={handleCloseForm}>
                 Cancel
               </button>
             </div>
@@ -739,7 +920,7 @@ function ManageTournaments() {
                 {!t.is_active && <span className="tournament-list-inactive">Inactive</span>}
               </div>
               <div className="admin-match-controls">
-                <button className="button-secondary button-compact" onClick={() => handleOpenForm(t)}>Edit</button>
+                <button className="button-secondary button-compact" onClick={() => handleEditClick(t)}>Edit</button>
                 <button className="button-danger button-compact" onClick={() => handleDelete(t.id)}>Delete</button>
               </div>
             </div>
