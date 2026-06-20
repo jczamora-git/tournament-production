@@ -4,6 +4,26 @@ import LoadingState from "../components/LoadingState";
 import EmptyState from "../components/EmptyState";
 import Toast from "../components/Toast";
 
+const GAME_MODE_DEFAULTS = {
+  MLBB: [
+    { code: "MOBA", name: "MOBA", competition_type: "head_to_head" },
+    { code: "MAGIC_CHESS", name: "Magic Chess", competition_type: "free_for_all" },
+  ],
+  HOK: [
+    { code: "MOBA", name: "MOBA", competition_type: "head_to_head" },
+  ],
+  CODM: [
+    { code: "MP", name: "Multiplayer", competition_type: "head_to_head" },
+    { code: "BR", name: "Battle Royale", competition_type: "battle_royale" },
+  ],
+};
+
+const COMPETITION_TYPES = [
+  { value: "head_to_head", label: "Head to Head" },
+  { value: "battle_royale", label: "Battle Royale" },
+  { value: "free_for_all", label: "Free for All" },
+];
+
 function ImageUploadCard({ title, helper, url, onUrlChange, type, tournamentId, previewVariant }) {
   const fileRef = useRef(null);
   const [uploading, setUploading] = useState(false);
@@ -146,6 +166,16 @@ function ImageUploadCard({ title, helper, url, onUrlChange, type, tournamentId, 
   );
 }
 
+function getDefaultModesForGame(game_type) {
+  const defs = GAME_MODE_DEFAULTS[game_type];
+  if (!defs) return [];
+  // For HOK, auto-select the single mode
+  if (game_type === "HOK") {
+    return defs.map((d) => ({ ...d, selected: true, team_upload_enabled: true, is_active: true }));
+  }
+  return defs.map((d) => ({ ...d, selected: false, team_upload_enabled: true, is_active: true }));
+}
+
 function ManageTournaments() {
   const [tournaments, setTournaments] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -160,17 +190,21 @@ function ManageTournaments() {
     status: "upcoming", banner_url: "", logo_url: "", cover_image_url: "", logo_image_url: "",
     start_date: "", end_date: "", is_active: true
   });
+  const [formModes, setFormModes] = useState(getDefaultModesForGame("MLBB"));
+  const [customModes, setCustomModes] = useState([]);
 
-  const fetchTournaments = () => {
+  const fetchTournaments = async () => {
     setLoading(true);
-    adminGetTournaments()
-      .then(setTournaments)
-      .catch((err) => setToast({ message: err.message, type: "error" }))
-      .finally(() => setLoading(false));
+    try {
+      const data = await adminGetTournaments();
+      setTournaments(data);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
-    fetchTournaments();
+    fetchTournaments().catch(err => setToast({ message: err.message, type: "error" }));
   }, []);
 
   const handleOpenForm = (tournament = null) => {
@@ -191,6 +225,35 @@ function ManageTournaments() {
         end_date: tournament.end_date ? tournament.end_date.split('T')[0] : "",
         is_active: tournament.is_active
       });
+
+      // Load existing modes
+      const gt = tournament.game_type || "MLBB";
+      if (gt === "OTHER") {
+        setFormModes([]);
+        setCustomModes((tournament.modes || []).map((m) => ({
+          code: m.code,
+          name: m.name,
+          competition_type: m.competition_type,
+          team_upload_enabled: m.team_upload_enabled !== false,
+          is_active: m.is_active !== false,
+          sort_order: m.sort_order ?? 0,
+        })));
+      } else {
+        const defs = GAME_MODE_DEFAULTS[gt] || [];
+        const existingModes = tournament.modes || [];
+        const mapped = defs.map((d, i) => {
+          const em = existingModes.find((m) => m.code === d.code);
+          return {
+            ...d,
+            selected: !!em,
+            team_upload_enabled: em ? em.team_upload_enabled !== false : true,
+            is_active: em ? em.is_active !== false : true,
+            sort_order: em ? em.sort_order : i,
+          };
+        });
+        setFormModes(mapped);
+        setCustomModes([]);
+      }
     } else {
       setEditingTournament(null);
       setFormData({
@@ -198,6 +261,8 @@ function ManageTournaments() {
         status: "upcoming", banner_url: "", logo_url: "", cover_image_url: "", logo_image_url: "",
         start_date: "", end_date: "", is_active: true
       });
+      setFormModes(getDefaultModesForGame("MLBB"));
+      setCustomModes([]);
     }
     setIsFormOpen(true);
   };
@@ -214,28 +279,116 @@ function ManageTournaments() {
     setFormData({ ...formData, logo_image_url: url, logo_url: url });
   };
 
+  const handleGameTypeChange = (newType) => {
+    setFormData({ ...formData, game_type: newType });
+    if (newType === "OTHER") {
+      setFormModes([]);
+      if (customModes.length === 0) {
+        setCustomModes([{ code: "", name: "", competition_type: "head_to_head", team_upload_enabled: true, is_active: true }]);
+      }
+    } else {
+      setFormModes(getDefaultModesForGame(newType));
+      setCustomModes([]);
+    }
+  };
+
+  const toggleMode = (code) => {
+    setFormModes((prev) => prev.map((m) => m.code === code ? { ...m, selected: !m.selected } : m));
+  };
+
+  const toggleModeUpload = (code) => {
+    setFormModes((prev) => prev.map((m) => m.code === code ? { ...m, team_upload_enabled: !m.team_upload_enabled } : m));
+  };
+
+  const addCustomMode = () => {
+    setCustomModes([...customModes, { code: "", name: "", competition_type: "head_to_head", team_upload_enabled: true, is_active: true }]);
+  };
+
+  const removeCustomMode = (index) => {
+    setCustomModes(customModes.filter((_, i) => i !== index));
+  };
+
+  const updateCustomMode = (index, field, value) => {
+    setCustomModes(customModes.map((m, i) => i === index ? { ...m, [field]: value } : m));
+  };
+
+  const getSelectedModes = () => {
+    if (formData.game_type === "OTHER") {
+      return customModes
+        .filter((m) => m.code.trim() && m.name.trim())
+        .map((m, i) => ({
+          code: m.code.trim().toUpperCase().replace(/[^A-Z0-9_]/g, ""),
+          name: m.name.trim(),
+          competition_type: m.competition_type || "head_to_head",
+          team_upload_enabled: m.team_upload_enabled !== false,
+          is_active: m.is_active !== false,
+          sort_order: i,
+        }));
+    }
+    return formModes
+      .filter((m) => m.selected)
+      .map((m, i) => ({
+        code: m.code,
+        name: m.name,
+        competition_type: m.competition_type,
+        team_upload_enabled: m.team_upload_enabled !== false,
+        is_active: m.is_active !== false,
+        sort_order: m.sort_order ?? i,
+      }));
+  };
+
   const handleSave = async (e) => {
     e.preventDefault();
+    if (saving) return;
+
     const dataToSave = { ...formData };
     if (!dataToSave.slug && dataToSave.name) {
       dataToSave.slug = generateSlug(dataToSave.name);
     }
 
+    const selectedModes = getSelectedModes();
+    if (selectedModes.length === 0) {
+      setToast({ message: "At least one mode is required.", type: "error" });
+      return;
+    }
+
+    if (dataToSave.start_date && dataToSave.end_date && new Date(dataToSave.end_date) < new Date(dataToSave.start_date)) {
+      setToast({ message: "End date must not be earlier than start date.", type: "error" });
+      return;
+    }
+
+    dataToSave.modes = selectedModes;
+
     setSaving(true);
+    let success = false;
     try {
       if (editingTournament) {
-        await adminUpdateTournament(editingTournament.id, dataToSave);
-        setToast({ message: "Tournament updated successfully", type: "success" });
+        const result = await adminUpdateTournament(editingTournament.id, dataToSave);
+        let msg = "Tournament updated successfully";
+        if (result?.warnings && result.warnings.length > 0) {
+          msg += ". " + result.warnings.join(" ");
+        }
+        setToast({ message: msg, type: result?.warnings?.length ? "warning" : "success" });
       } else {
-        await adminCreateTournament(dataToSave);
-        setToast({ message: "Tournament created successfully", type: "success" });
+        const result = await adminCreateTournament(dataToSave);
+        setToast({ message: result?.message || "Tournament created successfully", type: "success" });
       }
       setIsFormOpen(false);
-      fetchTournaments();
-    } catch (err) {
-      setToast({ message: err.message, type: "error" });
+      success = true;
+    } catch (createError) {
+      console.error("Tournament save failed:", createError);
+      setToast({ message: createError.message || "Failed to save tournament.", type: "error" });
     } finally {
       setSaving(false);
+    }
+
+    if (success) {
+      try {
+        await fetchTournaments();
+      } catch (refreshError) {
+        console.error("Tournament saved, but refreshing the list failed:", refreshError);
+        setToast({ message: "Tournament saved, but the list could not be refreshed. Please refresh the page.", type: "warning" });
+      }
     }
   };
 
@@ -252,6 +405,120 @@ function ManageTournaments() {
   };
 
   if (loading) return <LoadingState message="Loading tournaments..." />;
+
+  const renderModeSection = () => {
+    const gt = formData.game_type;
+
+    if (gt === "OTHER") {
+      return (
+        <div className="tournament-form-section">
+          <div className="tournament-form-section-title">
+            <span className="tournament-form-section-icon">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+                <path d="M2 17l10 5 10-5"/>
+                <path d="M2 12l10 5 10-5"/>
+              </svg>
+            </span>
+            <span>Custom Modes</span>
+          </div>
+          <p style={{ color: "var(--jz-text-soft)", fontSize: "13px", marginBottom: "12px" }}>
+            Define at least one competition mode for this tournament.
+          </p>
+          {customModes.map((cm, i) => (
+            <div key={i} style={{ display: "flex", gap: "8px", alignItems: "flex-end", marginBottom: "8px", flexWrap: "wrap" }}>
+              <div className="form-group" style={{ flex: 1, minWidth: "120px", marginBottom: 0 }}>
+                {i === 0 && <label style={{ fontSize: "12px" }}>Code</label>}
+                <input
+                  value={cm.code}
+                  onChange={(e) => updateCustomMode(i, "code", e.target.value)}
+                  placeholder="e.g. VOLLEYBALL"
+                  style={{ textTransform: "uppercase" }}
+                />
+              </div>
+              <div className="form-group" style={{ flex: 1, minWidth: "120px", marginBottom: 0 }}>
+                {i === 0 && <label style={{ fontSize: "12px" }}>Name</label>}
+                <input
+                  value={cm.name}
+                  onChange={(e) => updateCustomMode(i, "name", e.target.value)}
+                  placeholder="e.g. Volleyball"
+                />
+              </div>
+              <div className="form-group" style={{ flex: 1, minWidth: "140px", marginBottom: 0 }}>
+                {i === 0 && <label style={{ fontSize: "12px" }}>Competition Type</label>}
+                <select value={cm.competition_type} onChange={(e) => updateCustomMode(i, "competition_type", e.target.value)}>
+                  {COMPETITION_TYPES.map((ct) => (
+                    <option key={ct.value} value={ct.value}>{ct.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: "6px", paddingBottom: "2px" }}>
+                <input type="checkbox" checked={cm.team_upload_enabled} onChange={() => updateCustomMode(i, "team_upload_enabled", !cm.team_upload_enabled)} id={`cm-upload-${i}`} />
+                <label htmlFor={`cm-upload-${i}`} style={{ fontSize: "11px", color: "var(--jz-text-soft)", whiteSpace: "nowrap" }}>Upload</label>
+              </div>
+              {customModes.length > 1 && (
+                <button type="button" className="button-ghost button-compact" onClick={() => removeCustomMode(i)} style={{ color: "#f87171", padding: "6px" }}>✕</button>
+              )}
+            </div>
+          ))}
+          <button type="button" className="button-secondary button-compact" onClick={addCustomMode} style={{ marginTop: "4px" }}>
+            + Add Mode
+          </button>
+        </div>
+      );
+    }
+
+    const defs = GAME_MODE_DEFAULTS[gt];
+    if (!defs) return null;
+
+    const isHOK = gt === "HOK";
+
+    return (
+      <div className="tournament-form-section">
+        <div className="tournament-form-section-title">
+          <span className="tournament-form-section-icon">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+              <path d="M2 17l10 5 10-5"/>
+              <path d="M2 12l10 5 10-5"/>
+            </svg>
+          </span>
+          <span>Competition Modes</span>
+        </div>
+        <p style={{ color: "var(--jz-text-soft)", fontSize: "13px", marginBottom: "12px" }}>
+          {isHOK ? "HOK tournaments use MOBA mode." : `Select which modes to enable for this ${gt} tournament. At least one is required.`}
+        </p>
+        {formModes.map((m) => (
+          <div key={m.code} className="tournament-toggle-row" style={{ marginBottom: "8px", display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
+            <input
+              type="checkbox"
+              checked={isHOK ? true : m.selected}
+              disabled={isHOK}
+              onChange={() => toggleMode(m.code)}
+              id={`mode-${m.code}`}
+            />
+            <label htmlFor={`mode-${m.code}`} className="tournament-toggle-label" style={{ flex: 1 }}>
+              <span className="tournament-toggle-title">{m.name}</span>
+              <span className="tournament-toggle-desc">{m.competition_type.replace(/_/g, " ")}</span>
+            </label>
+            {(isHOK || m.selected) && (
+              <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                <input
+                  type="checkbox"
+                  checked={m.team_upload_enabled}
+                  onChange={() => toggleModeUpload(m.code)}
+                  id={`mode-upload-${m.code}`}
+                />
+                <label htmlFor={`mode-upload-${m.code}`} style={{ fontSize: "12px", color: "var(--jz-text-soft)", whiteSpace: "nowrap" }}>
+                  Team Upload
+                </label>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    );
+  };
 
   return (
     <div>
@@ -305,7 +572,7 @@ function ManageTournaments() {
                 </div>
                 <div className="form-group">
                   <label>Game Type</label>
-                  <select value={formData.game_type} onChange={(e) => setFormData({ ...formData, game_type: e.target.value })}>
+                  <select value={formData.game_type} onChange={(e) => handleGameTypeChange(e.target.value)}>
                     <option value="MLBB">MLBB</option>
                     <option value="HOK">HOK</option>
                     <option value="CODM">CODM</option>
@@ -331,6 +598,9 @@ function ManageTournaments() {
                 </div>
               </div>
             </div>
+
+            {/* Section: Competition Modes */}
+            {renderModeSection()}
 
             {/* Section: Schedule */}
             <div className="tournament-form-section">
@@ -455,6 +725,15 @@ function ManageTournaments() {
                     <h3>{t.name}</h3>
                     {t.season && <span className="tournament-list-season">{t.season}</span>}
                     <span className="tournament-list-slug">{t.slug}</span>
+                    {t.modes && t.modes.length > 0 && (
+                      <div style={{ display: "flex", gap: "4px", flexWrap: "wrap", marginTop: "4px" }}>
+                        {t.modes.map((m) => (
+                          <span key={m.id} className="admin-match-mode-pill" style={{ fontSize: "10px", padding: "2px 6px", opacity: m.is_active ? 1 : 0.5 }}>
+                            {m.name}{!m.is_active ? " (inactive)" : ""}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
                 {!t.is_active && <span className="tournament-list-inactive">Inactive</span>}

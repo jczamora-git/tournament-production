@@ -38,7 +38,15 @@ async function request(path, options = {}) {
   }
 
   if (response.status === 204) return null;
-  return response.json();
+
+  const text = await response.text();
+  if (!text) return null;
+
+  try {
+    return JSON.parse(text);
+  } catch {
+    throw new Error(`The server returned an invalid JSON response (${response.status}).`);
+  }
 }
 
 function adminRequest(path, options = {}) {
@@ -47,15 +55,28 @@ function adminRequest(path, options = {}) {
   return request(path, { ...options, headers });
 }
 
+// Build query string from params object
+function qs(params) {
+  if (!params) return "";
+  const parts = [];
+  for (const [k, v] of Object.entries(params)) {
+    if (v !== undefined && v !== null && v !== "") {
+      parts.push(`${encodeURIComponent(k)}=${encodeURIComponent(v)}`);
+    }
+  }
+  return parts.length ? `?${parts.join("&")}` : "";
+}
+
 // Public endpoints
-export const getTeams = () => request("/teams");
+export const getTeams = (params) => request(`/teams${qs(params)}`);
 export const getMatches = () => request("/matches");
 export const getUpcomingMatches = () => request("/matches/upcoming");
 export const getMatchHistory = () => request("/matches/history");
 export const getMatchBracket = () => request("/matches/bracket");
 export const getPublicLiveSettings = () => request("/live-settings");
-export const getTournaments = () => request("/tournaments");
+export const getTournaments = (params) => request(`/tournaments${qs(params)}`);
 export const getTournamentBySlug = (slug) => request(`/tournaments/${slug}`);
+export const getTournamentModes = (tournamentId) => request(`/tournaments/${tournamentId}/modes`);
 export const getVideos = () => request("/videos");
 export const getTournamentVideos = (slug) => request(`/tournaments/${slug}/videos`);
 
@@ -70,7 +91,7 @@ export const adminLogin = (token) =>
 export const adminVerify = () => adminRequest("/admin/verify");
 
 // Admin teams
-export const adminGetTeams = () => adminRequest("/admin/teams");
+export const adminGetTeams = (params) => adminRequest(`/admin/teams${qs(params)}`);
 export const adminCreateTeam = (payload) =>
   adminRequest("/admin/teams", { method: "POST", body: payload });
 export const adminUpdateTeam = (id, payload) =>
@@ -88,7 +109,7 @@ export const adminDeleteMatch = (id) =>
   adminRequest(`/admin/matches/${id}`, { method: "DELETE" });
 
 // Admin team submissions
-export const adminGetSubmissions = () => adminRequest("/admin/team-submissions");
+export const adminGetSubmissions = (params) => adminRequest(`/admin/team-submissions${qs(params)}`);
 export const adminApproveSubmission = (id, edits) =>
   adminRequest(`/admin/team-submissions/${id}/approve`, { method: "PUT", body: edits || {} });
 export const adminRejectSubmission = (id) =>
@@ -100,7 +121,7 @@ export const adminUpdateLiveSettings = (payload) =>
   adminRequest("/admin/live-settings", { method: "PUT", body: payload });
 
 // Admin tournaments
-export const adminGetTournaments = () => adminRequest("/admin/tournaments");
+export const adminGetTournaments = () => adminRequest("/admin/tournaments", { cache: "no-store" });
 export const adminCreateTournament = (payload) => adminRequest("/admin/tournaments", { method: "POST", body: payload });
 export const adminUpdateTournament = (id, payload) => adminRequest(`/admin/tournaments/${id}`, { method: "PUT", body: payload });
 export const adminDeleteTournament = (id) => adminRequest(`/admin/tournaments/${id}`, { method: "DELETE" });

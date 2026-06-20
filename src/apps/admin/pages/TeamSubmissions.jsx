@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { adminGetSubmissions, adminApproveSubmission, adminRejectSubmission } from "../../../services/api";
+import { adminGetSubmissions, adminApproveSubmission, adminRejectSubmission, adminGetTournaments, getTournamentModes } from "../../../services/api";
 import Toast from "../components/Toast";
 import ConfirmationModal from "../components/ConfirmationModal";
 import EmptyState from "../components/EmptyState";
@@ -7,23 +7,52 @@ import LoadingState from "../components/LoadingState";
 
 function TeamSubmissions() {
   const [submissions, setSubmissions] = useState([]);
+  const [tournaments, setTournaments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState({ message: "", type: "info" });
   const [filter, setFilter] = useState("pending");
   const [confirmAction, setConfirmAction] = useState(null);
 
+  // Filters
+  const [filterTournamentId, setFilterTournamentId] = useState("");
+  const [filterModeId, setFilterModeId] = useState("");
+  const [filterModes, setFilterModes] = useState([]);
+
   const fetchSubmissions = useCallback(async () => {
     try {
-      const data = await adminGetSubmissions();
+      const params = {};
+      if (filterTournamentId) params.tournament_id = filterTournamentId;
+      if (filterModeId) params.tournament_mode_id = filterModeId;
+      if (filter !== "all") params.status = filter;
+      const data = await adminGetSubmissions(params);
       setSubmissions(data);
     } catch (err) {
       setToast({ message: err.message, type: "error" });
     } finally {
       setLoading(false);
     }
+  }, [filterTournamentId, filterModeId, filter]);
+
+  const fetchTournaments = useCallback(async () => {
+    try {
+      const data = await adminGetTournaments();
+      setTournaments(data);
+    } catch {
+      // silent
+    }
   }, []);
 
+  useEffect(() => { fetchTournaments(); }, [fetchTournaments]);
   useEffect(() => { fetchSubmissions(); }, [fetchSubmissions]);
+
+  useEffect(() => {
+    if (filterTournamentId) {
+      getTournamentModes(filterTournamentId).then(setFilterModes).catch(() => setFilterModes([]));
+    } else {
+      setFilterModes([]);
+      setFilterModeId("");
+    }
+  }, [filterTournamentId]);
 
   const handleConfirm = async () => {
     if (!confirmAction) return;
@@ -48,7 +77,6 @@ function TeamSubmissions() {
     }
   };
 
-  const filtered = submissions.filter((s) => filter === "all" || s.status === filter);
   const pendingCount = submissions.filter((s) => s.status === "pending").length;
 
   if (loading) return <LoadingState message="Loading submissions..." />;
@@ -62,6 +90,7 @@ function TeamSubmissions() {
         </div>
       </div>
 
+      {/* Status filter */}
       <div className="admin-filter-bar">
         <button
           type="button"
@@ -93,15 +122,41 @@ function TeamSubmissions() {
         </button>
       </div>
 
-      {filtered.length === 0 ? (
+      {/* Tournament/mode filter */}
+      <div className="admin-filter-bar" style={{ marginTop: "8px", marginBottom: "16px", gap: "8px", flexWrap: "wrap" }}>
+        <select
+          value={filterTournamentId}
+          onChange={(e) => { setFilterTournamentId(e.target.value); setFilterModeId(""); }}
+          style={{ minWidth: "180px" }}
+        >
+          <option value="">All Tournaments</option>
+          {tournaments.map((t) => (
+            <option key={t.id} value={t.id}>{t.name}</option>
+          ))}
+        </select>
+        {filterTournamentId && filterModes.length > 0 && (
+          <select
+            value={filterModeId}
+            onChange={(e) => setFilterModeId(e.target.value)}
+            style={{ minWidth: "160px" }}
+          >
+            <option value="">All Modes</option>
+            {filterModes.map((m) => (
+              <option key={m.id} value={m.id}>{m.name}</option>
+            ))}
+          </select>
+        )}
+      </div>
+
+      {submissions.length === 0 ? (
         <EmptyState
           icon="📋"
-          title={`No ${filter} submissions`}
-          description={filter === "pending" ? "All submissions have been reviewed." : `No ${filter} submissions found.`}
+          title={`No ${filter === "all" ? "" : filter + " "}submissions`}
+          description={filter === "pending" ? "All submissions have been reviewed." : `No ${filter === "all" ? "" : filter + " "}submissions found.`}
         />
       ) : (
         <div className="admin-submission-list">
-          {filtered.map((sub) => (
+          {submissions.map((sub) => (
             <div key={sub.id} className="admin-submission-card">
               <div className="admin-submission-header">
                 <strong>{sub.team_name}</strong>
@@ -109,6 +164,14 @@ function TeamSubmissions() {
                 <span className={`status-badge status-${sub.status}`}>{sub.status}</span>
               </div>
               <div className="admin-submission-details">
+                <p>
+                  <strong>Tournament:</strong>{" "}
+                  {sub.tournament_name ? `${sub.tournament_name}` : <span style={{ color: "var(--jz-text-soft)", fontStyle: "italic" }}>Unassigned / Legacy</span>}
+                </p>
+                <p>
+                  <strong>Division:</strong>{" "}
+                  {sub.mode_name ? `${sub.mode_name}` : <span style={{ color: "var(--jz-text-soft)", fontStyle: "italic" }}>Unassigned / Legacy</span>}
+                </p>
                 <p><strong>Captain:</strong> {sub.captain_name}</p>
                 <p><strong>Contact:</strong> {sub.contact}</p>
                 <div style={{ display: "flex", alignItems: "center", gap: "10px", marginTop: "8px", marginBottom: "8px" }}>
@@ -160,7 +223,7 @@ function TeamSubmissions() {
         title={confirmAction?.action === "approve" ? "Approve Team" : "Reject Team"}
         message={
           confirmAction?.action === "approve"
-            ? `Approve "${confirmAction?.sub?.team_name}" and add them to the tournament?`
+            ? `Approve "${confirmAction?.sub?.team_name}" for ${confirmAction?.sub?.tournament_name || "tournament"} — ${confirmAction?.sub?.mode_name || "mode"}?`
             : `Reject "${confirmAction?.sub?.team_name}"? They will need to resubmit.`
         }
         confirmText={confirmAction?.action === "approve" ? "Approve" : "Reject"}

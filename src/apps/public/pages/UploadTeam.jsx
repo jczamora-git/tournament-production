@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { submitTeam } from "../../../services/api";
+import { submitTeam, getTournaments, getTournamentModes } from "../../../services/api";
 import { apiUrl } from "../../../config/api";
 
 function UploadTeam() {
@@ -12,6 +12,8 @@ function UploadTeam() {
     contact: "",
     logo_url: "",
     notes: "",
+    tournament_id: "",
+    tournament_mode_id: "",
   });
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -27,25 +29,85 @@ function UploadTeam() {
   const [uploadEnabled, setUploadEnabled] = useState(true);
   const [closedMessage, setClosedMessage] = useState("");
 
+  // Tournament/mode data
+  const [tournaments, setTournaments] = useState([]);
+  const [modes, setModes] = useState([]);
+  const [selectedTournament, setSelectedTournament] = useState(null);
+  const [selectedMode, setSelectedMode] = useState(null);
+
   useEffect(() => {
-    fetch(apiUrl("/api/public-settings"))
-      .then((res) => res.json())
-      .then((data) => {
-        setUploadEnabled(data.team_upload_enabled !== false);
-        setClosedMessage(data.team_upload_closed_message || "Team registration and logo upload are now closed.");
-      })
-      .catch(() => {
-        setUploadEnabled(true);
-      })
-      .finally(() => {
-        setSettingsLoading(false);
-      });
+    Promise.all([
+      fetch(apiUrl("/api/public-settings"))
+        .then((res) => res.json())
+        .then((data) => {
+          setUploadEnabled(data.team_upload_enabled !== false);
+          setClosedMessage(data.team_upload_closed_message || "Team registration and logo upload are now closed.");
+        })
+        .catch(() => {
+          setUploadEnabled(true);
+        }),
+      getTournaments()
+        .then((data) => {
+          setTournaments(data);
+          // Auto-select if only one tournament
+          if (data.length === 1) {
+            const t = data[0];
+            setSelectedTournament(t);
+            setForm((prev) => ({ ...prev, tournament_id: String(t.id) }));
+          }
+        })
+        .catch(() => setTournaments([])),
+    ]).finally(() => setSettingsLoading(false));
   }, []);
+
+  // Load modes when tournament changes
+  useEffect(() => {
+    if (form.tournament_id) {
+      getTournamentModes(form.tournament_id)
+        .then((data) => {
+          // Filter to only upload-enabled modes
+          const uploadModes = data.filter((m) => m.team_upload_enabled);
+          setModes(uploadModes);
+          // Auto-select if only one mode
+          if (uploadModes.length === 1) {
+            setSelectedMode(uploadModes[0]);
+            setForm((prev) => ({ ...prev, tournament_mode_id: String(uploadModes[0].id) }));
+          } else {
+            setForm((prev) => ({ ...prev, tournament_mode_id: "" }));
+            setSelectedMode(null);
+          }
+        })
+        .catch(() => {
+          setModes([]);
+          setForm((prev) => ({ ...prev, tournament_mode_id: "" }));
+          setSelectedMode(null);
+        });
+    } else {
+      setModes([]);
+      setForm((prev) => ({ ...prev, tournament_mode_id: "" }));
+      setSelectedMode(null);
+    }
+  }, [form.tournament_id]);
 
   const VALID_TYPES = new Set(["image/png", "image/jpeg", "image/webp"]);
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
+  };
+
+  const handleTournamentChange = (e) => {
+    const val = e.target.value;
+    const t = tournaments.find((t) => String(t.id) === val) || null;
+    setSelectedTournament(t);
+    setForm({ ...form, tournament_id: val, tournament_mode_id: "" });
+    setSelectedMode(null);
+  };
+
+  const handleModeChange = (e) => {
+    const val = e.target.value;
+    const m = modes.find((m) => String(m.id) === val) || null;
+    setSelectedMode(m);
+    setForm({ ...form, tournament_mode_id: val });
   };
 
   const triggerFileSelect = () => {
@@ -123,9 +185,18 @@ function UploadTeam() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (loading || uploading) return;
     setError("");
     setSuccess("");
 
+    if (!form.tournament_id) {
+      setError("Please select a tournament");
+      return;
+    }
+    if (!form.tournament_mode_id) {
+      setError("Please select a division / mode");
+      return;
+    }
     if (!form.team_name.trim()) {
       setError("Team name is required");
       return;
@@ -141,9 +212,14 @@ function UploadTeam() {
 
     setLoading(true);
     try {
-      const result = await submitTeam(form);
+      const payload = {
+        ...form,
+        tournament_id: Number(form.tournament_id),
+        tournament_mode_id: Number(form.tournament_mode_id),
+      };
+      const result = await submitTeam(payload);
       setShowSuccessModal(true);
-      setForm({ team_name: "", shortname: "", captain_name: "", contact: "", logo_url: "", notes: "" });
+      setForm({ team_name: "", shortname: "", captain_name: "", contact: "", logo_url: "", notes: "", tournament_id: "", tournament_mode_id: "" });
       setUploadedFileName("");
       
       setTimeout(() => {
@@ -201,6 +277,44 @@ function UploadTeam() {
         <form onSubmit={handleSubmit}>
           {error && <div className="admin-error-message">{error}</div>}
           {success && <div className="admin-error-message" style={{ backgroundColor: "rgba(34, 197, 94, 0.12)", borderColor: "rgba(34, 197, 94, 0.4)", color: "#bbf7d0" }}>{success}</div>}
+
+          {/* Tournament selector */}
+          <div className="form-group">
+            <label>Tournament *</label>
+            <p className="form-helper-text">Select the tournament you are registering for.</p>
+            {tournaments.length === 0 ? (
+              <p style={{ color: "#fca5a5", fontSize: "14px" }}>No active tournaments available for registration.</p>
+            ) : tournaments.length === 1 ? (
+              <input type="text" value={tournaments[0].name} disabled style={{ opacity: 0.7 }} />
+            ) : (
+              <select name="tournament_id" value={form.tournament_id} onChange={handleTournamentChange}>
+                <option value="">Select tournament</option>
+                {tournaments.map((t) => (
+                  <option key={t.id} value={t.id}>{t.name}</option>
+                ))}
+              </select>
+            )}
+          </div>
+
+          {/* Mode selector */}
+          {form.tournament_id && (
+            <div className="form-group">
+              <label>Division / Mode *</label>
+              <p className="form-helper-text">Select the division you are joining. Teams registered under different divisions are separate entries.</p>
+              {modes.length === 0 ? (
+                <p style={{ color: "#fca5a5", fontSize: "14px" }}>No divisions available for registration in this tournament.</p>
+              ) : modes.length === 1 ? (
+                <input type="text" value={modes[0].name} disabled style={{ opacity: 0.7 }} />
+              ) : (
+                <select name="tournament_mode_id" value={form.tournament_mode_id} onChange={handleModeChange}>
+                  <option value="">Select division</option>
+                  {modes.map((m) => (
+                    <option key={m.id} value={m.id}>{m.name}</option>
+                  ))}
+                </select>
+              )}
+            </div>
+          )}
 
           <div className="form-group">
             <label>Team Name *</label>
@@ -327,7 +441,10 @@ function UploadTeam() {
             </div>
             <h2 className="submission-success-title">Team Submitted Successfully!</h2>
             <p className="submission-success-message">
-              Your team logo and details have been submitted. Please wait for admin approval.
+              Your team has been submitted
+              {selectedTournament ? ` for ${selectedTournament.name}` : ""}
+              {selectedMode ? ` — ${selectedMode.name}` : ""}.
+              Please wait for admin approval.
             </p>
             <p style={{ color: "#64748b", fontSize: "13px" }}>Redirecting you back to the homepage...</p>
             

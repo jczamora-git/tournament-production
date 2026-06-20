@@ -20,7 +20,7 @@ router.get("/", async (req, res) => {
 
 router.post("/", async (req, res) => {
   try {
-    const { match_no, blue_team_id, red_team_id, mode, title, queue_order, status } = req.body;
+    const { match_no, blue_team_id, red_team_id, mode, title, queue_order, status, tournament_id, tournament_mode_id } = req.body;
 
     if (!blue_team_id || !red_team_id) {
       return res.status(400).json({ message: "Blue Team and Red Team are required" });
@@ -48,8 +48,8 @@ router.post("/", async (req, res) => {
 
     const insertSql =
       db.client === "postgres"
-        ? "INSERT INTO matches (match_no, blue_team_id, red_team_id, mode, title, queue_order, blue_score, red_score, status) VALUES (?,?,?,?,?,?,?,?,?) RETURNING id"
-        : "INSERT INTO matches (match_no, blue_team_id, red_team_id, mode, title, queue_order, blue_score, red_score, status) VALUES (?,?,?,?,?,?,?,?,?)";
+        ? "INSERT INTO matches (match_no, blue_team_id, red_team_id, mode, title, queue_order, blue_score, red_score, status, tournament_id, tournament_mode_id) VALUES (?,?,?,?,?,?,?,?,?,?,?) RETURNING id"
+        : "INSERT INTO matches (match_no, blue_team_id, red_team_id, mode, title, queue_order, blue_score, red_score, status, tournament_id, tournament_mode_id) VALUES (?,?,?,?,?,?,?,?,?,?,?)";
 
     const [, result] = await db.query(insertSql, [
       finalMatchNo,
@@ -61,6 +61,8 @@ router.post("/", async (req, res) => {
       0,
       0,
       status || "queued",
+      tournament_id || null,
+      tournament_mode_id || null,
     ]);
 
     res.status(201).json({ id: result.insertId });
@@ -73,7 +75,7 @@ router.post("/", async (req, res) => {
 router.put("/:id", async (req, res) => {
   try {
     const { id } = req.params;
-    const { match_no, blue_team_id, red_team_id, mode, title, queue_order, blue_score, red_score, status } = req.body;
+    const { match_no, blue_team_id, red_team_id, mode, title, queue_order, blue_score, red_score, status, tournament_id, tournament_mode_id } = req.body;
 
     const [rows] = await db.query("SELECT * FROM matches WHERE id = ?", [id]);
     if (!rows.length) {
@@ -82,7 +84,7 @@ router.put("/:id", async (req, res) => {
 
     const existing = rows[0];
     await db.query(
-      "UPDATE matches SET match_no = ?, blue_team_id = ?, red_team_id = ?, mode = ?, title = ?, queue_order = ?, blue_score = ?, red_score = ?, status = ? WHERE id = ?",
+      "UPDATE matches SET match_no = ?, blue_team_id = ?, red_team_id = ?, mode = ?, title = ?, queue_order = ?, blue_score = ?, red_score = ?, status = ?, tournament_id = ?, tournament_mode_id = ? WHERE id = ?",
       [
         match_no ?? existing.match_no,
         blue_team_id ?? existing.blue_team_id,
@@ -93,6 +95,8 @@ router.put("/:id", async (req, res) => {
         blue_score ?? existing.blue_score,
         red_score ?? existing.red_score,
         status ?? existing.status,
+        tournament_id !== undefined ? (tournament_id || null) : existing.tournament_id,
+        tournament_mode_id !== undefined ? (tournament_mode_id || null) : existing.tournament_mode_id,
         id,
       ]
     );

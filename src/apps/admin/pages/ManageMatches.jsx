@@ -191,6 +191,7 @@ function ManageMatches() {
               <div className="admin-match-card-footer">
                 <div className="admin-match-card-meta">
                   <span className="admin-match-mode-pill">{match.mode}</span>
+                  {match.tournament_id && <span style={{ fontSize: "10px", color: "var(--jz-text-soft)" }}>T#{match.tournament_id}</span>}
                 </div>
                 <div className="admin-match-card-actions">
                   <button type="button" className="button-ghost button-compact" onClick={() => openEdit(match)}>
@@ -241,7 +242,7 @@ function ManageMatches() {
 
                 <div className="admin-form-row">
                   <div className="form-group">
-                    <label>Mode</label>
+                    <label>Series Format</label>
                     <select value={mode} onChange={(e) => setMode(e.target.value)}>
                       <option value="BO1">BO1</option>
                       <option value="BO3">BO3</option>

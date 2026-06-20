@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { adminGetTeams, adminCreateTeam, adminUpdateTeam, adminDeleteTeam } from "../../../services/api";
+import { adminGetTeams, adminCreateTeam, adminUpdateTeam, adminDeleteTeam, adminGetTournaments, getTournamentModes } from "../../../services/api";
 import Toast from "../components/Toast";
 import ConfirmationModal from "../components/ConfirmationModal";
 import EmptyState from "../components/EmptyState";
@@ -7,6 +7,7 @@ import LoadingState from "../components/LoadingState";
 
 function ManageTeams() {
   const [teams, setTeams] = useState([]);
+  const [tournaments, setTournaments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState({ message: "", type: "info" });
   const [modalOpen, setModalOpen] = useState(false);
@@ -14,27 +15,71 @@ function ManageTeams() {
   const [name, setName] = useState("");
   const [shortname, setShortname] = useState("");
   const [logoUrl, setLogoUrl] = useState("");
+  const [tournamentId, setTournamentId] = useState("");
+  const [modeId, setModeId] = useState("");
+  const [modesForSelected, setModesForSelected] = useState([]);
   const [formError, setFormError] = useState("");
   const [saving, setSaving] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);
 
+  // Filters
+  const [filterTournamentId, setFilterTournamentId] = useState("");
+  const [filterModeId, setFilterModeId] = useState("");
+  const [filterModes, setFilterModes] = useState([]);
+
   const fetchTeams = useCallback(async () => {
     try {
-      const data = await adminGetTeams();
+      const params = {};
+      if (filterTournamentId) params.tournament_id = filterTournamentId;
+      if (filterModeId) params.tournament_mode_id = filterModeId;
+      const data = await adminGetTeams(params);
       setTeams(data);
     } catch (err) {
       setToast({ message: err.message, type: "error" });
     } finally {
       setLoading(false);
     }
+  }, [filterTournamentId, filterModeId]);
+
+  const fetchTournaments = useCallback(async () => {
+    try {
+      const data = await adminGetTournaments();
+      setTournaments(data);
+    } catch {
+      // silent
+    }
   }, []);
 
+  useEffect(() => { fetchTournaments(); }, [fetchTournaments]);
   useEffect(() => { fetchTeams(); }, [fetchTeams]);
+
+  // Load modes when filter tournament changes
+  useEffect(() => {
+    if (filterTournamentId) {
+      getTournamentModes(filterTournamentId).then(setFilterModes).catch(() => setFilterModes([]));
+    } else {
+      setFilterModes([]);
+      setFilterModeId("");
+    }
+  }, [filterTournamentId]);
+
+  // Load modes for the form tournament selector
+  useEffect(() => {
+    if (tournamentId) {
+      getTournamentModes(tournamentId).then(setModesForSelected).catch(() => setModesForSelected([]));
+    } else {
+      setModesForSelected([]);
+      setModeId("");
+    }
+  }, [tournamentId]);
 
   const resetForm = () => {
     setName("");
     setShortname("");
     setLogoUrl("");
+    setTournamentId("");
+    setModeId("");
+    setModesForSelected([]);
     setEditingId(null);
     setFormError("");
     setModalOpen(false);
@@ -50,12 +95,21 @@ function ManageTeams() {
     setName(team.name);
     setShortname(team.shortname || "");
     setLogoUrl(team.logo || "");
+    setTournamentId(team.tournament_id ? String(team.tournament_id) : "");
+    setModeId(team.tournament_mode_id ? String(team.tournament_mode_id) : "");
     setFormError("");
     setModalOpen(true);
+    // Modes will load via useEffect when tournamentId changes
+  };
+
+  const handleTournamentChange = (val) => {
+    setTournamentId(val);
+    setModeId(""); // Reset mode when tournament changes
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (saving) return;
     setFormError("");
 
     if (!name.trim()) {
@@ -63,29 +117,52 @@ function ManageTeams() {
       return;
     }
 
+    // Require tournament and mode for new teams
+    if (!editingId) {
+      if (!tournamentId) {
+        setFormError("Tournament is required for new teams");
+        return;
+      }
+      if (!modeId) {
+        setFormError("Mode / Division is required for new teams");
+        return;
+      }
+    }
+
     setSaving(true);
+    let success = false;
     try {
+      const payload = {
+        name: name.trim(),
+        shortname: shortname.trim() || null,
+        logo: logoUrl.trim() || null,
+      };
+      if (tournamentId) payload.tournament_id = Number(tournamentId);
+      if (modeId) payload.tournament_mode_id = Number(modeId);
+
       if (editingId) {
-        await adminUpdateTeam(editingId, {
-          name: name.trim(),
-          shortname: shortname.trim() || null,
-          logo: logoUrl.trim() || null,
-        });
+        await adminUpdateTeam(editingId, payload);
         setToast({ message: "Team updated successfully", type: "success" });
       } else {
-        await adminCreateTeam({
-          name: name.trim(),
-          shortname: shortname.trim() || null,
-          logo: logoUrl.trim() || null,
-        });
-        setToast({ message: "Team created successfully", type: "success" });
+        const result = await adminCreateTeam(payload);
+        setToast({ message: result?.message || "Team created successfully", type: "success" });
       }
       resetForm();
-      fetchTeams();
+      success = true;
     } catch (err) {
-      setFormError(err.message);
+      console.error("Team save failed:", err);
+      setFormError(err.message || "Failed to save team.");
     } finally {
       setSaving(false);
+    }
+
+    if (success) {
+      try {
+        await fetchTeams();
+      } catch (refreshErr) {
+        console.error("Team saved, but refreshing the list failed:", refreshErr);
+        setToast({ message: "Team saved, but the list could not be refreshed. Please refresh the page.", type: "warning" });
+      }
     }
   };
 
@@ -116,6 +193,32 @@ function ManageTeams() {
         </button>
       </div>
 
+      {/* Filters */}
+      <div className="admin-filter-bar" style={{ marginBottom: "16px", gap: "8px", flexWrap: "wrap" }}>
+        <select
+          value={filterTournamentId}
+          onChange={(e) => { setFilterTournamentId(e.target.value); setFilterModeId(""); }}
+          style={{ minWidth: "180px" }}
+        >
+          <option value="">All Tournaments</option>
+          {tournaments.map((t) => (
+            <option key={t.id} value={t.id}>{t.name}</option>
+          ))}
+        </select>
+        {filterTournamentId && filterModes.length > 0 && (
+          <select
+            value={filterModeId}
+            onChange={(e) => setFilterModeId(e.target.value)}
+            style={{ minWidth: "160px" }}
+          >
+            <option value="">All Modes</option>
+            {filterModes.map((m) => (
+              <option key={m.id} value={m.id}>{m.name}</option>
+            ))}
+          </select>
+        )}
+      </div>
+
       {teams.length === 0 ? (
         <EmptyState
           icon="👥"
@@ -142,6 +245,11 @@ function ManageTeams() {
                 {team.shortname && (
                   <span className="admin-team-shortname">{team.shortname}</span>
                 )}
+                <span style={{ fontSize: "11px", color: "var(--jz-text-soft)", marginTop: "2px" }}>
+                  {team.tournament_name
+                    ? `${team.tournament_name} — ${team.mode_name || "—"}`
+                    : "Unassigned / Legacy"}
+                </span>
               </div>
               <div className="admin-team-actions">
                 <button type="button" className="button-ghost button-compact" onClick={() => openEdit(team)}>
@@ -167,6 +275,29 @@ function ManageTeams() {
             <form onSubmit={handleSubmit}>
               <div className="admin-modal-body">
                 {formError && <div className="admin-error-message">{formError}</div>}
+
+                <div className="form-group">
+                  <label>Tournament *</label>
+                  <select value={tournamentId} onChange={(e) => handleTournamentChange(e.target.value)}>
+                    <option value="">Select tournament</option>
+                    {tournaments.map((t) => (
+                      <option key={t.id} value={t.id}>{t.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {tournamentId && (
+                  <div className="form-group">
+                    <label>Mode / Division *</label>
+                    <select value={modeId} onChange={(e) => setModeId(e.target.value)}>
+                      <option value="">Select mode</option>
+                      {modesForSelected.map((m) => (
+                        <option key={m.id} value={m.id}>{m.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
                 <div className="form-group">
                   <label>Team Name *</label>
                   <input
