@@ -10,6 +10,17 @@ const isRegistrationTournament = (tournament) => {
   return isDatabaseTrue(tournament?.is_active) && REGISTRATION_STATUSES.has(status);
 };
 
+function getTournamentInitials(name) {
+  return String(name || "Tournament")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((word) => word.charAt(0))
+    .join("")
+    .toUpperCase();
+}
+
 function truncateModeCaption(value, maxLength = 12) {
   const text = String(value || "").trim().toUpperCase();
 
@@ -94,6 +105,9 @@ function UploadTeam() {
 
   const [selectionInitialized, setSelectionInitialized] = useState(false);
   const [selectionModal, setSelectionModal] = useState(null);
+
+  const tournamentTrackRef = useRef(null);
+  const [activeTournamentIndex, setActiveTournamentIndex] = useState(0);
 
   const canChangeTournament = tournaments.length > 1;
   const canChangeMode = modes.length > 1;
@@ -219,11 +233,119 @@ function UploadTeam() {
     return () => { isMounted = false; };
   }, [form.tournament_id]);
 
+  useEffect(() => {
+    if (
+      selectionModal !== "tournament" ||
+      !tournaments.length
+    ) {
+      return;
+    }
+
+    setActiveTournamentIndex(0);
+
+    const frame = window.requestAnimationFrame(
+      () => {
+        scrollToTournamentCard(0, "auto");
+      }
+    );
+
+    return () => {
+      window.cancelAnimationFrame(frame);
+    };
+  }, [
+    selectionModal,
+    tournaments.length,
+  ]);
+
   const VALID_TYPES = new Set(["image/png", "image/jpeg", "image/webp"]);
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
+
+  function clampTournamentIndex(index) {
+    if (!tournaments.length) return 0;
+
+    return Math.max(
+      0,
+      Math.min(index, tournaments.length - 1)
+    );
+  }
+
+  function scrollToTournamentCard(
+    requestedIndex,
+    behavior = "smooth"
+  ) {
+    const track = tournamentTrackRef.current;
+
+    if (!track) return;
+
+    const cards = Array.from(track.children);
+
+    if (!cards.length) return;
+
+    const nextIndex =
+      clampTournamentIndex(requestedIndex);
+
+    const card = cards[nextIndex];
+
+    if (!card) return;
+
+    const targetLeft =
+      card.offsetLeft -
+      (track.clientWidth - card.clientWidth) / 2;
+
+    track.scrollTo({
+      left: Math.max(0, targetLeft),
+      behavior,
+    });
+
+    setActiveTournamentIndex(nextIndex);
+  }
+
+  function handlePreviousTournament() {
+    scrollToTournamentCard(
+      activeTournamentIndex - 1
+    );
+  }
+
+  function handleNextTournament() {
+    scrollToTournamentCard(
+      activeTournamentIndex + 1
+    );
+  }
+
+  function handleTournamentTrackScroll() {
+    const track = tournamentTrackRef.current;
+
+    if (!track) return;
+
+    const cards = Array.from(track.children);
+
+    if (!cards.length) return;
+
+    const viewportCenter =
+      track.scrollLeft + track.clientWidth / 2;
+
+    let closestIndex = 0;
+    let closestDistance = Infinity;
+
+    cards.forEach((card, index) => {
+      const cardCenter =
+        card.offsetLeft + card.clientWidth / 2;
+
+      const distance = Math.abs(
+        cardCenter - viewportCenter
+      );
+
+      if (distance < closestDistance) {
+        closestDistance = distance;
+        closestIndex = index;
+      }
+    });
+
+    setActiveTournamentIndex(closestIndex);
+  }
 
   const handleTournamentSelect = (t) => {
     setSelectedTournament(t);
@@ -476,42 +598,188 @@ function UploadTeam() {
 
       {selectionModal === "tournament" && (
         <div className="ph-modal-backdrop">
-          <div className="ph-modal registration-selection-modal" role="dialog" aria-modal="true" aria-labelledby="reg-tourney-title">
-            <h2 id="reg-tourney-title">Select Tournament</h2>
-            <p className="ph-modal-sub">Choose the tournament where you want to register your team.</p>
+          <div
+            className={[
+              "ph-modal",
+              "registration-selection-modal",
+              selectionModal === "tournament" ? "is-tournament-selector" : "",
+            ]
+              .filter(Boolean)
+              .join(" ")}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="reg-tourney-title"
+          >
+            <div className="registration-selection-header">
+              <span className="registration-selection-eyebrow">
+                TEAM REGISTRATION
+              </span>
+              <h2 id="reg-tourney-title" className="registration-selection-title">Select Tournament</h2>
+              <p className="registration-selection-subtitle">Choose where you want to register your team.</p>
+            </div>
             
-            <div className="registration-selection-grid">
-              {tournaments.map(t => {
-                const coverUrl = t.cover_image_url || t.banner_url;
-                const logoUrl = t.logo_image_url || t.logo_url;
+            <div className="registration-tournament-carousel">
+              <div
+                ref={tournamentTrackRef}
+                className="registration-tournament-track"
+                onScroll={handleTournamentTrackScroll}
+              >
+                {tournaments.map((tournament) => {
+                  const logoUrl =
+                    tournament.logo_image_url ||
+                    tournament.logo_url;
+
+                  const normalizedStatus = String(
+                    tournament.status || ""
+                  )
+                  .trim()
+                  .toLowerCase();
+
                 return (
-                  <button 
-                    key={t.id} 
-                    type="button"
-                    className="registration-selection-card" 
-                    onClick={() => handleTournamentSelect(t)}
+                  <article
+                    key={tournament.id}
+                    className="registration-tournament-card"
                   >
-                    <div className="registration-selection-card-cover">
-                      {coverUrl ? <img src={coverUrl} alt="" /> : <div style={{width:'100%', height:'100%', background:'#2f3336'}} />}
-                      {logoUrl && <img src={logoUrl} alt="" className="registration-selection-card-logo" />}
+                    <div className="registration-tournament-logo-stage">
+                      {logoUrl ? (
+                        <img
+                          src={logoUrl}
+                          alt={`${tournament.name} logo`}
+                          className="registration-tournament-logo"
+                        />
+                      ) : (
+                        <div
+                          className="registration-tournament-logo-fallback"
+                          aria-hidden="true"
+                        >
+                          {getTournamentInitials(
+                            tournament.name
+                          )}
+                        </div>
+                      )}
                     </div>
-                    <div className="registration-selection-card-body">
-                      <h3 style={{ margin: 0, fontSize: "1rem", color: "#f8fafc" }}>{t.name}</h3>
-                      <div className="registration-selection-card-meta">
-                        <span style={{ color: "#dc2626", fontWeight: "bold" }}>{t.game_type}</span>
-                        {t.season && <span>• {t.season}</span>}
+
+                    <div className="registration-tournament-content">
+                      <h3
+                        className="registration-tournament-name"
+                        title={tournament.name}
+                      >
+                        {tournament.name}
+                      </h3>
+
+                      <div className="registration-tournament-meta">
+                        <span>
+                          {tournament.game_type}
+                        </span>
+
+                        {tournament.season && (
+                          <>
+                            <span
+                              className="registration-tournament-meta-dot"
+                              aria-hidden="true"
+                            >
+                              •
+                            </span>
+
+                            <span>
+                              {tournament.season}
+                            </span>
+                          </>
+                        )}
                       </div>
-                      <div className="registration-selection-card-meta" style={{ marginTop: "auto" }}>
-                        <span className="ph-featured-status" style={{ fontSize: "0.65rem", padding: "2px 6px" }}>{t.status.toUpperCase()}</span>
-                      </div>
+
+                      <span
+                        className={[
+                          "registration-tournament-status",
+                          `is-${normalizedStatus}`,
+                        ].join(" ")}
+                      >
+                        {normalizedStatus.toUpperCase()}
+                      </span>
                     </div>
-                  </button>
+
+                    <button
+                      type="button"
+                      className="registration-tournament-select"
+                      onClick={() =>
+                        handleTournamentSelect(tournament)
+                      }
+                    >
+                      Select Tournament
+                    </button>
+                  </article>
                 );
               })}
             </div>
 
-            <div className="ph-modal-actions" style={{ marginTop: "1rem" }}>
-              <button className="ph-btn ph-btn-secondary" onClick={() => navigate("/")}>
+            {tournaments.length > 1 && (
+              <div className="registration-tournament-mobile-nav">
+                <p className="registration-tournament-swipe-hint">
+                  Swipe or use the arrows to browse tournaments
+                </p>
+
+                <div className="registration-tournament-controls">
+                  <button
+                    type="button"
+                    className="registration-tournament-arrow"
+                    onClick={handlePreviousTournament}
+                    disabled={activeTournamentIndex === 0}
+                    aria-label="Previous tournament"
+                  >
+                    ‹
+                  </button>
+
+                  <span
+                    className="registration-tournament-index"
+                    aria-live="polite"
+                  >
+                    {activeTournamentIndex + 1}
+                    {" / "}
+                    {tournaments.length}
+                  </span>
+
+                  <button
+                    type="button"
+                    className="registration-tournament-arrow"
+                    onClick={handleNextTournament}
+                    disabled={
+                      activeTournamentIndex ===
+                      tournaments.length - 1
+                    }
+                    aria-label="Next tournament"
+                  >
+                    ›
+                  </button>
+                </div>
+
+                <div
+                  className="registration-tournament-dots"
+                  aria-hidden="true"
+                >
+                  {tournaments.map((tournament, index) => (
+                    <span
+                      key={tournament.id}
+                      className={[
+                        "registration-tournament-dot",
+                        index === activeTournamentIndex
+                          ? "is-active"
+                          : "",
+                      ]
+                        .filter(Boolean)
+                        .join(" ")}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+            <div className="registration-selection-footer">
+              <button
+                type="button"
+                className="ph-btn ph-btn-secondary"
+                onClick={() => navigate("/")}
+              >
                 Back to Home
               </button>
             </div>
