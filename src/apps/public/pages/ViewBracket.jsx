@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { GitFork } from "lucide-react";
 import { getMatchBracket } from "../../../services/api";
 import EmptyState from "../../admin/components/EmptyState";
 import LoadingState from "../../admin/components/LoadingState";
@@ -34,9 +35,9 @@ function ViewBracket() {
 
       {bracket.length === 0 ? (
         <EmptyState
-          icon="🏆"
-          title="No bracket data"
-          description="Tournament bracket matches will appear here."
+          icon={<GitFork size={48} strokeWidth={1.5} color="currentColor" />}
+          title="Bracket empty"
+          description="Bracket matches will appear here."
         />
       ) : (
         <div className="admin-bracket-list">

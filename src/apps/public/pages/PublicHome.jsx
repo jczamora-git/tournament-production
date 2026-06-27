@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { getTournaments } from "../../../services/api";
 import { apiUrl } from "../../../config/api";
+import { CalendarDays, Clapperboard, GitFork, Radio, Trophy, UserPlus } from "lucide-react";
 
 const MODAL_KEY = "jeizi_registration_modal_dismissed";
 
@@ -12,7 +13,9 @@ function RegistrationModal({ onClose, uploadUrl, tournament }) {
   return (
     <div className="ph-modal-backdrop" onClick={onClose}>
       <div className="ph-modal" onClick={(e) => e.stopPropagation()}>
-        <div className="ph-modal-icon">🏆</div>
+        <div className="ph-modal-icon" style={{ display: "flex", justifyContent: "center", marginBottom: "16px", color: "var(--jz-accent-primary)" }}>
+          <Trophy size={44} strokeWidth={1.5} />
+        </div>
         <h2>
           {name
             ? `Are you registered on this ${name} event?`
@@ -126,18 +129,14 @@ function PublicHome() {
   const coverUrl = featured?.cover_image_url || featured?.banner_url || null;
   const logoUrl = featured?.logo_image_url || featured?.logo_url || null;
 
-  const heroStyle = coverUrl
-    ? {
-        backgroundImage: [
-          "linear-gradient(to bottom, rgba(5,7,11,0.30) 0%, rgba(5,7,11,0.55) 45%, rgba(5,7,11,0.88) 78%, rgba(5,7,11,1) 100%)",
-          "linear-gradient(to right, rgba(180,10,10,0.18) 0%, transparent 60%)",
-          `url(${coverUrl})`,
-        ].join(", "),
-        backgroundSize: "cover",
-        backgroundPosition: "center center",
-        backgroundRepeat: "no-repeat",
-      }
-    : undefined;
+  const bgStyle = coverUrl ? { backgroundImage: `url(${coverUrl})` } : undefined;
+  
+  const overlayStyle = coverUrl ? {
+    backgroundImage: [
+      "linear-gradient(to bottom, rgba(5,7,11,0.30) 0%, rgba(5,7,11,0.55) 45%, rgba(5,7,11,0.88) 78%, rgba(5,7,11,1) 100%)",
+      "linear-gradient(to right, rgba(180,10,10,0.18) 0%, transparent 60%)"
+    ].join(", "),
+  } : undefined;
 
   if (loading) {
     return (
@@ -154,7 +153,13 @@ function PublicHome() {
   return (
     <div>
       {/* ── Hero ── */}
-      <section className="ph-hero" style={heroStyle}>
+      <section className="ph-hero">
+        {coverUrl && (
+          <>
+            <div className="ph-hero__artwork" style={bgStyle} aria-hidden="true" />
+            <div className="ph-hero__overlay" style={overlayStyle} aria-hidden="true" />
+          </>
+        )}
         <div className="ph-hero__content">
           <div className="ph-hero__copy">
             {featured && (
@@ -304,48 +309,58 @@ function PublicHome() {
           <p>Everything you need in one place.</p>
         </div>
         <div className="ph-tiles">
-          <Link to="/upload-team" className="ph-tile">
-            <div className="ph-tile-icon" style={{ background: uploadEnabled ? undefined : "rgba(148, 163, 184, 0.12)", borderColor: uploadEnabled ? undefined : "rgba(148, 163, 184, 0.2)", color: uploadEnabled ? undefined : "#94a3b8" }}>📋</div>
-            <div className="ph-tile-content">
-              <h3 style={{ color: uploadEnabled ? undefined : "#94a3b8" }}>{uploadEnabled ? "Register Team" : "Registration Closed"}</h3>
-              <p>{uploadEnabled ? "Submit your team details and logo for the tournament." : "Team registration and logo upload are now closed."}</p>
-            </div>
-          </Link>
-          <Link to="/live" className="ph-tile">
-            <div className="ph-tile-icon is-green">📡</div>
-            <div className="ph-tile-content">
-              <h3>Watch Live</h3>
-              <p>Watch the official tournament broadcast in real-time.</p>
-            </div>
-          </Link>
-          <Link to="/tournaments" className="ph-tile">
-            <div className="ph-tile-icon is-blue">🎮</div>
-            <div className="ph-tile-content">
-              <h3>Browse Tournaments</h3>
-              <p>View all tournaments and event details.</p>
-            </div>
-          </Link>
-          <Link to="/videos" className="ph-tile">
-            <div className="ph-tile-icon is-orange">🎬</div>
-            <div className="ph-tile-content">
-              <h3>Video Archives</h3>
-              <p>Replay past broadcasts and tournament highlights.</p>
-            </div>
-          </Link>
-          <Link to="/matches" className="ph-tile">
-            <div className="ph-tile-icon is-blue">⚔️</div>
-            <div className="ph-tile-content">
-              <h3>Match Schedule</h3>
-              <p>Check current and upcoming match schedules.</p>
-            </div>
-          </Link>
-          <Link to="/bracket" className="ph-tile">
-            <div className="ph-tile-icon">🏆</div>
-            <div className="ph-tile-content">
-              <h3>Tournament Bracket</h3>
-              <p>View elimination bracket and team standings.</p>
-            </div>
-          </Link>
+          {[
+            {
+              title: uploadEnabled ? "Register Team" : "Registration Closed",
+              description: uploadEnabled ? "Submit your team details and logo for the tournament." : "Team registration and logo upload are now closed.",
+              icon: UserPlus,
+              to: uploadEnabled ? uploadUrl : "#",
+              disabled: !uploadEnabled,
+            },
+            {
+              title: "Watch Live",
+              description: "Watch the official tournament broadcast in real-time.",
+              icon: Radio,
+              to: "/live",
+            },
+            {
+              title: "Browse Tournaments",
+              description: "View all tournaments and event details.",
+              icon: Trophy,
+              to: "/tournaments",
+            },
+            {
+              title: "Video Archives",
+              description: "Replay past broadcasts and tournament highlights.",
+              icon: Clapperboard,
+              to: "/videos",
+            },
+            {
+              title: "Match Schedule",
+              description: "Check current and upcoming match schedules.",
+              icon: CalendarDays,
+              to: "/matches",
+            },
+            {
+              title: "Tournament Bracket",
+              description: "View elimination bracket and team standings.",
+              icon: GitFork,
+              to: "/bracket",
+            },
+          ].map((item, index) => {
+            const Icon = item.icon;
+            return (
+              <Link key={index} to={item.to} className="ph-tile" style={item.disabled ? { pointerEvents: "none" } : {}}>
+                <div className="tournament-hub-icon-wrap" style={item.disabled ? { borderColor: "rgba(148, 163, 184, 0.2)", background: "rgba(148, 163, 184, 0.12)", color: "#94a3b8" } : {}}>
+                  <Icon className="tournament-hub-icon" aria-hidden="true" />
+                </div>
+                <div className="ph-tile-content">
+                  <h3 style={item.disabled ? { color: "#94a3b8" } : {}}>{item.title}</h3>
+                  <p>{item.description}</p>
+                </div>
+              </Link>
+            );
+          })}
         </div>
       </section>
 

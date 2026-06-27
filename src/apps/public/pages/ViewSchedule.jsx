@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { CalendarDays } from "lucide-react";
 import { getUpcomingMatches } from "../../../services/api";
 import EmptyState from "../../admin/components/EmptyState";
 import LoadingState from "../../admin/components/LoadingState";
@@ -67,7 +68,7 @@ function ViewSchedule() {
 
       {matches.length === 0 ? (
         <EmptyState
-          icon="⚔️"
+          icon={<CalendarDays size={48} strokeWidth={1.5} color="currentColor" />}
           title="No upcoming matches"
           description="Check back later for scheduled matches."
         />

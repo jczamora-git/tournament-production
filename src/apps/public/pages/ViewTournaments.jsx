@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
+import { AlertTriangle, Trophy } from "lucide-react";
 import { getTournaments } from "../../../services/api";
 import LoadingState from "../../admin/components/LoadingState";
 import EmptyState from "../../admin/components/EmptyState";
@@ -17,7 +18,7 @@ function ViewTournaments() {
   }, []);
 
   if (loading) return <LoadingState message="Loading tournaments..." />;
-  if (error) return <EmptyState icon="⚠️" title="Error loading tournaments" description={error} />;
+  if (error) return <EmptyState icon={<AlertTriangle size={48} strokeWidth={1.5} color="currentColor" />} title="Error loading tournaments" description={error} />;
 
   return (
     <div>
@@ -27,7 +28,7 @@ function ViewTournaments() {
       </header>
 
       {tournaments.length === 0 ? (
-        <EmptyState icon="🏆" title="No tournaments available" description="Check back later for upcoming events." />
+        <EmptyState icon={<Trophy size={48} strokeWidth={1.5} color="currentColor" />} title="No tournaments available" description="Check back later for upcoming events." />
       ) : (
         <div className="tournaments-grid">
           {tournaments.map((t) => {

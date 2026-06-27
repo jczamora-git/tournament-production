@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
+import { AlertTriangle, Clapperboard } from "lucide-react";
 import { getVideos, getTournaments } from "../../../services/api";
 import LoadingState from "../../admin/components/LoadingState";
 import EmptyState from "../../admin/components/EmptyState";
@@ -40,7 +41,7 @@ function ViewVideos() {
     : videos;
 
   if (loading) return <LoadingState message="Loading video archive..." />;
-  if (error) return <EmptyState icon="⚠️" title="Error loading videos" description={error} />;
+  if (error) return <EmptyState icon={<AlertTriangle size={48} strokeWidth={1.5} color="currentColor" />} title="Error loading videos" description={error} />;
 
   return (
     <div>
@@ -60,7 +61,7 @@ function ViewVideos() {
       </header>
 
       {filteredVideos.length === 0 ? (
-        <EmptyState icon="🎬" title="No videos available" description="There are no published videos for this selection." />
+        <EmptyState icon={<Clapperboard size={48} strokeWidth={1.5} color="currentColor" />} title="No videos available" description="There are no published videos for this selection." />
       ) : (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(350px, 1fr))", gap: "24px" }}>
           {filteredVideos.map((v) => (

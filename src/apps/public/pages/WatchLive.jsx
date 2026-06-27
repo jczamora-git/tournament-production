@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { getPublicLiveSettings } from "../../../services/api";
+import { Radio } from "lucide-react";
 import { buildFacebookEmbedUrl } from "../../../config/live";
 import EmptyState from "../../admin/components/EmptyState";
 
@@ -54,7 +55,7 @@ function WatchLive() {
         </div>
       ) : (
         <EmptyState
-          icon="📡"
+          icon={<Radio size={48} strokeWidth={1.5} color="currentColor" />}
           title="No Facebook Live URL configured yet."
           description="Set VITE_FACEBOOK_LIVE_URL in your environment variables or update src/config/live.js for testing."
         />

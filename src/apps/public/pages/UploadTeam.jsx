@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { submitTeam, getTournaments } from "../../../services/api";
 import { apiUrl } from "../../../config/api";
+import { Lock, AlertTriangle } from "lucide-react";
 
 const isDatabaseTrue = (value) => value === true || value === 1 || value === "1" || value === "true";
 const REGISTRATION_STATUSES = new Set(["upcoming", "ongoing"]);
@@ -756,7 +757,9 @@ function UploadTeam() {
     return (
       <div className="ph-section team-upload-page">
         <div className="team-registration-card" style={{ textAlign: "center", padding: "60px 20px" }}>
-          <div style={{ fontSize: "48px", marginBottom: "20px" }}>🔒</div>
+          <div style={{ display: "flex", justifyContent: "center", marginBottom: "20px", color: "#94a3b8" }}>
+            <Lock size={48} strokeWidth={1.5} />
+          </div>
           <h2 style={{ fontSize: "24px", color: "#f8fafc", marginBottom: "16px" }}>
             {uploadEnabled ? "Registration Unavailable" : "Team Registration Closed"}
           </h2>
@@ -1198,9 +1201,11 @@ function UploadTeam() {
         )}
 
       {noModesAvailable && !selectionModal && (
-        <div className="registration-empty-state">
-          <div style={{ fontSize: "32px", marginBottom: "1rem" }}>⚠️</div>
-          <h3 style={{ color: "#f8fafc", marginBottom: "0.5rem" }}>Registration Unavailable</h3>
+        <div className="team-registration-card" style={{ textAlign: "center", padding: "60px 20px" }}>
+          <div style={{ display: "flex", justifyContent: "center", marginBottom: "1rem", color: "var(--jz-accent-primary, #ef4444)" }}>
+            <AlertTriangle size={32} strokeWidth={1.5} />
+          </div>
+          <h2 style={{ color: "#f8fafc", marginBottom: "16px" }}>Registration Unavailable</h2>
           <p style={{ color: "#94a3b8", marginBottom: "2rem" }}>Registration is not available for any division in this tournament.</p>
           <div style={{ display: "flex", gap: "1rem", justifyContent: "center" }}>
             {canChangeTournament && (

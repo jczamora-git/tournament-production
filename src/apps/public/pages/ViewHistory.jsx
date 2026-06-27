@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { ScrollText } from "lucide-react";
 import { getMatchHistory } from "../../../services/api";
 import EmptyState from "../../admin/components/EmptyState";
 import LoadingState from "../../admin/components/LoadingState";
@@ -34,7 +35,7 @@ function ViewHistory() {
 
       {matches.length === 0 ? (
         <EmptyState
-          icon="📜"
+          icon={<ScrollText size={48} strokeWidth={1.5} color="currentColor" />}
           title="No match history"
           description="Completed matches will appear here."
         />
